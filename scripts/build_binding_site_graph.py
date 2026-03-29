@@ -28,11 +28,8 @@ import torch
 
 from idr_gat.data.p2rank import run_p2rank, process_domain_pockets
 
-# Reuse graph building functions from the domain graph builder
-from scripts.build_alphafold_graph import (
-    foldseek_cluster_and_search,
-    AA3TO1,
-)
+# Reuse AA mapping from the domain graph builder
+from scripts.build_alphafold_graph import AA3TO1
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -58,10 +55,8 @@ def main():
     parser.add_argument("--foldseek-bin", type=str, default="foldseek")
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--threads", type=int, default=8)
-    parser.add_argument("--cluster-tm", type=float, default=0.9)
-    parser.add_argument("--edge-tm-low", type=float, default=0.4)
-    parser.add_argument("--edge-tm-high", type=float, default=0.9)
-    parser.add_argument("--foldseek-cluster-tm", type=float, default=0.7)
+    parser.add_argument("--edge-tm-low", type=float, default=0.8)
+    parser.add_argument("--edge-tm-high", type=float, default=999.0)
     parser.add_argument("--min-pocket-score", type=float, default=0.5)
     parser.add_argument("--min-pocket-residues", type=int, default=10)
     parser.add_argument("--max-pockets-per-domain", type=int, default=5)
@@ -141,23 +136,78 @@ def main():
             "protein_sequences": protein_sequences,
         }, f)
 
-    # Step 2: Foldseek pipeline on pocket PDBs
-    logger.info("Step 2: Foldseek pipeline on %d pocket PDBs...", n_total_pockets)
-    pocket_names = sorted(pocket_to_protein.keys())
+    # Step 2: Foldseek 3Di encoding + all-vs-all search (no clustering)
+    logger.info("Step 2: Foldseek all-vs-all on %d pocket PDBs (no clustering)...", n_total_pockets)
+    import subprocess
+    import pandas as pd
+    from idr_gat.data.foldseek import encode_3di, parse_3di_to_indices
+
     foldseek_work = output_dir / "foldseek_work"
+    foldseek_work.mkdir(exist_ok=True)
 
-    all_names, similarities, threedi_seqs = foldseek_cluster_and_search(
-        pocket_names, pocket_pdb_dir, foldseek_work,
-        foldseek_bin=args.foldseek_bin,
-        cluster_tm=args.foldseek_cluster_tm,
-        threads=args.threads,
-    )
+    # Encode 3Di sequences
+    threedi_seqs = encode_3di(pocket_pdb_dir, foldseek_bin=args.foldseek_bin,
+                               output_dir=foldseek_work)
+    logger.info("3Di encoded for %d pockets", len(threedi_seqs))
 
-    # Step 3: Build graph
-    logger.info("Step 3: Building binding site graph...")
-    from idr_gat.data.foldseek import parse_3di_to_indices
+    # Build Foldseek DB and run all-vs-all search
+    db_path = foldseek_work / "pocketdb"
+    result_path = foldseek_work / "result"
+    tsv_path = foldseek_work / "alignment.tsv"
 
-    all_3di = [parse_3di_to_indices(threedi_seqs[name]) for name in all_names]
+    if not tsv_path.exists() or tsv_path.stat().st_size == 0:
+        # Create DB
+        if not Path(str(db_path) + ".dbtype").exists():
+            logger.info("Creating Foldseek database...")
+            subprocess.run([
+                args.foldseek_bin, "createdb", str(pocket_pdb_dir), str(db_path),
+            ], check=True, capture_output=True)
+
+        # All-vs-all search
+        logger.info("All-vs-all search...")
+        subprocess.run([
+            args.foldseek_bin, "search",
+            str(db_path), str(db_path), str(result_path),
+            str(foldseek_work / "tmp_search"),
+            "-a", "--alignment-type", "1",
+            "--threads", str(args.threads),
+        ], check=True, capture_output=True)
+
+        subprocess.run([
+            args.foldseek_bin, "convertalis",
+            str(db_path), str(db_path), str(result_path), str(tsv_path),
+            "--format-output", "query,target,alntmscore",
+        ], check=True, capture_output=True)
+
+    # Parse similarities — direct edges, no clustering
+    logger.info("Parsing similarities...")
+    all_names = sorted(pocket_to_protein.keys())
+    name_to_idx = {n: i for i, n in enumerate(all_names)}
+
+    edges_src, edges_dst, edges_weight = [], [], []
+    df = pd.read_csv(tsv_path, sep="\t", header=None, names=["query", "target", "tmscore"])
+    for _, row in df.iterrows():
+        q, t = row["query"], row["target"]
+        if q == t:
+            continue
+        try:
+            tm = float(row["tmscore"])
+        except (ValueError, TypeError):
+            continue
+        if q not in name_to_idx or t not in name_to_idx:
+            continue
+        if args.edge_tm_low <= tm < args.edge_tm_high:
+            qi, ti = name_to_idx[q], name_to_idx[t]
+            edges_src.append(qi)
+            edges_dst.append(ti)
+            edges_weight.append(tm)
+
+    logger.info("Edges: %d (TM in [%.2f, %.2f))", len(edges_src), args.edge_tm_low, args.edge_tm_high)
+
+    # Step 3: Build graph — every pocket is its own node
+    logger.info("Step 3: Building binding site graph (no clustering)...")
+
+    all_3di = [parse_3di_to_indices(threedi_seqs.get(name, "")) for name in all_names]
     all_protein_ids = [pocket_to_protein[name] for name in all_names]
 
     # ESM-2 embeddings per binding site
@@ -180,15 +230,28 @@ def main():
         )
 
     from idr_gat.graph.builder import build_conformation_graph
+    import torch
+
+    # Build edge tensors
+    if edges_src:
+        edge_index = torch.tensor([edges_src + edges_dst, edges_dst + edges_src], dtype=torch.long)
+        edge_attr = torch.tensor(edges_weight + edges_weight, dtype=torch.float32).unsqueeze(1)
+    else:
+        edge_index = torch.zeros((2, 0), dtype=torch.long)
+        edge_attr = torch.zeros((0, 1), dtype=torch.float32)
+
     graph = build_conformation_graph(
         threedi_sequences=all_3di,
-        similarities=similarities,
+        similarities={},  # edges already built above
         threshold=args.edge_tm_low,
         threshold_high=args.edge_tm_high,
         protein_ids=all_protein_ids,
         conformation_ids=all_names,
         esm2_embeddings=esm2_embeddings,
     )
+    # Override edges with our direct edges (no clustering)
+    graph.edge_index = edge_index
+    graph.edge_attr = edge_attr
 
     # Node ranges (pocket-level, mapped to parent protein)
     node_ranges = {}
