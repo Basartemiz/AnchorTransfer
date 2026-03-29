@@ -84,25 +84,24 @@ class TestInfoNCELoss:
 
 
 class TestCurriculumLoss:
-    def test_early_epoch_infonce_dominant(self):
+    def test_early_epoch_balanced(self):
         from idr_gat.model.affinity_gat import curriculum_weights
         alpha, beta = curriculum_weights(epoch=0, max_epochs=200)
-        assert beta > alpha
-        assert abs(alpha - 0.2) < 1e-5
-        assert abs(beta - 0.8) < 1e-5
+        assert abs(alpha - 0.5) < 1e-5
+        assert abs(beta - 0.5) < 1e-5
 
     def test_late_epoch_mse_dominant(self):
         from idr_gat.model.affinity_gat import curriculum_weights
         alpha, beta = curriculum_weights(epoch=200, max_epochs=200)
         assert alpha > beta
-        assert abs(alpha - 0.8) < 1e-5
-        assert abs(beta - 0.2) < 1e-5
+        assert abs(alpha - 0.9) < 1e-5
+        assert abs(beta - 0.1) < 1e-5
 
     def test_midpoint(self):
         from idr_gat.model.affinity_gat import curriculum_weights
         alpha, beta = curriculum_weights(epoch=100, max_epochs=200)
-        assert abs(alpha - 0.5) < 1e-5
-        assert abs(beta - 0.5) < 1e-5
+        assert abs(alpha - 0.7) < 1e-5
+        assert abs(beta - 0.3) < 1e-5
 
     def test_weights_sum_to_one(self):
         from idr_gat.model.affinity_gat import curriculum_weights

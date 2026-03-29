@@ -93,11 +93,11 @@ def infonce_loss(
 def curriculum_weights(epoch: int, max_epochs: int) -> tuple[float, float]:
     """Compute curriculum MSE (alpha) and InfoNCE (beta) weights.
 
-    Linear interpolation: alpha 0.2->0.8, beta 0.8->0.2.
+    Linear interpolation: alpha 0.5->0.9, beta 0.5->0.1.
     """
     progress = min(epoch / max(max_epochs, 1), 1.0)
-    alpha = 0.2 + 0.6 * progress
-    beta = 0.8 - 0.6 * progress
+    alpha = 0.5 + 0.4 * progress
+    beta = 0.5 - 0.4 * progress
     return alpha, beta
 
 
