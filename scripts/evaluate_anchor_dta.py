@@ -490,6 +490,8 @@ def main():
                         help="Limit to first N proteins (0=all, useful for testing)")
     parser.add_argument("--max-drugs", type=int, default=0,
                         help="Random sample N drugs per protein (0=all)")
+    parser.add_argument("--disorder-analysis", action="store_true",
+                        help="Compute disorder score and report per-quartile metrics + TM×disorder heatmap")
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -754,6 +756,124 @@ def main():
                     label.upper(), float(seq_ci), float(anc_ci),
                     float(anc_ci) - float(seq_ci))
     logger.info("=" * 60)
+
+    # Disorder entropy analysis
+    if args.disorder_analysis:
+        from idr_gat.evaluation.disorder_score import (
+            threedi_entropy as _threedi_entropy, compute_disorder_score, bin_by_disorder,
+        )
+        from idr_gat.data.foldseek import encode_3di
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        logger.info("Computing disorder scores...")
+        idp_summary = summary_df[summary_df["protein_type"] == "idp"].copy()
+
+        disorder_scores = {}
+        for _, row in idp_summary.iterrows():
+            uid = row["uniprot_id"]
+            conf_dirs = idrome_index.get(uid, [])
+            if not conf_dirs:
+                continue
+
+            pdb_paths = []
+            for cd in conf_dirs:
+                cd_path = Path(cd)
+                if cd_path.is_dir():
+                    if not (cd_path / "traj.xtc").exists():
+                        pdb_paths.extend(sorted(cd_path.glob("*.pdb")))
+                    elif (cd_path / "top.pdb").exists():
+                        pdb_paths.append(cd_path / "top.pdb")
+
+            if len(pdb_paths) < 2:
+                continue
+
+            import shutil
+            with tempfile.TemporaryDirectory() as tmp:
+                tmp_pdb_dir = Path(tmp) / "pdbs"
+                tmp_pdb_dir.mkdir()
+                for i, p in enumerate(pdb_paths[:20]):
+                    shutil.copy2(p, tmp_pdb_dir / f"conf_{i:03d}.pdb")
+                threedi_seqs = encode_3di(tmp_pdb_dir, foldseek_bin=args.foldseek_bin)
+                if len(threedi_seqs) >= 2:
+                    ent = _threedi_entropy(list(threedi_seqs.values()))
+                    plddt_proxy = 1.0 - min(row.get("mean_anchor_tm", 0.5), 1.0)
+                    disorder_scores[uid] = compute_disorder_score(ent, 1.0 - plddt_proxy)
+
+        if disorder_scores:
+            idp_summary["disorder_score"] = idp_summary["uniprot_id"].map(disorder_scores)
+            scored = idp_summary.dropna(subset=["disorder_score", "ci_anchor", "ci_seq"])
+
+            bins = bin_by_disorder(
+                {row["uniprot_id"]: row["disorder_score"] for _, row in scored.iterrows()},
+                n_bins=4,
+            )
+            logger.info("=" * 60)
+            logger.info("DISORDER QUARTILE ANALYSIS (IDPs)")
+            logger.info("=" * 60)
+            for label, uids in bins.items():
+                sub = scored[scored["uniprot_id"].isin(uids)]
+                if len(sub) == 0:
+                    continue
+                sci = sub["ci_seq"].mean()
+                aci = sub["ci_anchor"].mean()
+                smse = sub["mse_seq"].mean()
+                amse = sub["mse_anchor"].mean()
+                dm = (amse - smse) / smse * 100 if smse > 0 else 0
+                ds_lo, ds_hi = sub["disorder_score"].min(), sub["disorder_score"].max()
+                logger.info("  %s (n=%d, ds=%.2f-%.2f): dCI=%+.3f  dMSE=%+.1f%%",
+                           label, len(sub), ds_lo, ds_hi, aci - sci, dm)
+
+            # 2D Heatmap: TM bins × Disorder bins
+            scored_with_tm = scored[scored["mean_anchor_tm"] > 0]
+            if len(scored_with_tm) >= 8:
+                tm_vals = scored_with_tm["mean_anchor_tm"].values
+                ds_vals = scored_with_tm["disorder_score"].values
+                dmse_vals = ((scored_with_tm["mse_anchor"] - scored_with_tm["mse_seq"]) /
+                             scored_with_tm["mse_seq"].clip(lower=0.01) * 100).values
+
+                tm_edges = np.percentile(tm_vals, [0, 25, 50, 75, 100])
+                ds_edges = np.percentile(ds_vals, [0, 25, 50, 75, 100])
+
+                heatmap = np.full((4, 4), np.nan)
+                counts = np.zeros((4, 4), dtype=int)
+
+                for tm, ds, dmse in zip(tm_vals, ds_vals, dmse_vals):
+                    ti = min(int(np.searchsorted(tm_edges[1:], tm, side="right")), 3)
+                    di = min(int(np.searchsorted(ds_edges[1:], ds, side="right")), 3)
+                    if np.isnan(heatmap[di, ti]):
+                        heatmap[di, ti] = 0.0
+                    heatmap[di, ti] += dmse
+                    counts[di, ti] += 1
+
+                mask = counts > 0
+                heatmap[mask] /= counts[mask]
+
+                fig, ax = plt.subplots(figsize=(8, 6))
+                im = ax.imshow(heatmap, cmap="RdYlGn_r", aspect="auto", origin="lower")
+                ax.set_xticks(range(4))
+                ax.set_xticklabels([f"TM Q{i+1}" for i in range(4)])
+                ax.set_yticks(range(4))
+                ax.set_yticklabels([f"DS Q{i+1}" for i in range(4)])
+                ax.set_xlabel("Anchor TM-score Quartile")
+                ax.set_ylabel("Disorder Score Quartile")
+                ax.set_title("dMSE% by Anchor TM x Disorder Score (IDPs)")
+                for i in range(4):
+                    for j in range(4):
+                        if counts[i, j] > 0:
+                            ax.text(j, i, f"{heatmap[i,j]:+.0f}%\nn={counts[i,j]}",
+                                   ha="center", va="center", fontsize=9)
+                plt.colorbar(im, label="dMSE%")
+                plt.tight_layout()
+                fig.savefig(output_dir / "tm_disorder_heatmap.pdf", dpi=150)
+                fig.savefig(output_dir / "tm_disorder_heatmap.png", dpi=150)
+                plt.close()
+                logger.info("Saved heatmap: %s", output_dir / "tm_disorder_heatmap.png")
+
+            scored.to_csv(output_dir / "disorder_scores.csv", index=False)
+            logger.info("Saved disorder scores: %s", output_dir / "disorder_scores.csv")
+
     logger.info("DONE — Results saved to %s", output_dir)
 
 

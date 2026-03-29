@@ -30,5 +30,4 @@
 
 ## Remote Servers
 
-- A40: `ssh root@194.68.245.207 -p 22097 -i ~/.ssh/id_ed25519` — code at `/workspace/`
-- A100 (may change): `ssh root@213.173.105.6 -p 30077 -i ~/.ssh/id_ed25519` — code at `/workspace/IDR-GAT/`
+- A40: `ssh root@194.68.245.215 -p 22078 -i ~/.ssh/id_ed25519` — code at `/workspace/IDP-work/`
