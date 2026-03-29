@@ -214,3 +214,50 @@ class TestProteinBatchSampler:
             pos_threshold=7.0, neg_threshold=5.0,
         )
         assert len(sampler) == 2
+
+
+class TestMultiTaskTrainStep:
+    def test_train_step_runs(self):
+        from idr_gat.model.affinity_gat import AffinityGAT, encode_smiles
+        from idr_gat.data.protein_batch_sampler import ProteinBatchSampler
+
+        graph = _make_graph(n_nodes=30)
+        model = AffinityGAT(proj_dim=128)
+        optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+
+        items = []
+        smiles_set = set()
+        for uid_idx, uid in enumerate(["P1", "P2"]):
+            for i in range(5):
+                smi = f"CCO{uid_idx}{i}"
+                items.append({"uniprot_id": uid, "smiles": smi, "pki": 8.0,
+                              "anchors": [{"anchor_node": uid_idx * 10, "anchor_tm": 0.9}]})
+                smiles_set.add(smi)
+            for i in range(5):
+                smi = f"CCN{uid_idx}{i}"
+                items.append({"uniprot_id": uid, "smiles": smi, "pki": 4.0,
+                              "anchors": [{"anchor_node": uid_idx * 10, "anchor_tm": 0.9}]})
+                smiles_set.add(smi)
+
+        smiles_list = sorted(smiles_set)
+        smiles_lookup = {s: i for i, s in enumerate(smiles_list)}
+        smiles_tensor = torch.stack([torch.tensor(encode_smiles(s), dtype=torch.long) for s in smiles_list])
+
+        sampler = ProteinBatchSampler(items, proteins_per_batch=2,
+                                       pos_per_protein=3, hard_neg_per_protein=3, mid_per_protein=0)
+
+        batch = next(iter(sampler))
+        b_anchors = torch.tensor([item["anchors"][0]["anchor_node"] for item in batch])
+        b_smiles = smiles_tensor[torch.tensor([smiles_lookup[item["smiles"]] for item in batch])]
+        b_targets = torch.tensor([item["pki"] for item in batch])
+        b_labels = torch.tensor([item["label"] for item in batch])
+
+        optimizer.zero_grad()
+        losses = model.compute_multitask_loss(graph, b_anchors, b_smiles, b_targets, b_labels,
+                                               epoch=10, max_epochs=200)
+        losses["total"].backward()
+        optimizer.step()
+
+        assert losses["mse"].item() > 0
+        assert losses["infonce"].item() >= 0
+        assert losses["total"].item() > 0

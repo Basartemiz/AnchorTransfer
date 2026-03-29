@@ -304,7 +304,10 @@ def prebuild_flat_tensors(data_items: list[dict], smiles_lookup: dict[str, int])
 
 
 def train_epoch(model, graph, train_data, optimizer, device, batch_size=64,
-                scaler=None, smiles_tensor=None, smiles_lookup=None):
+                scaler=None, smiles_tensor=None, smiles_lookup=None,
+                epoch=0, max_epochs=200, proteins_per_batch=4,
+                pos_per_protein=8, hard_neg_per_protein=8, mid_per_protein=4,
+                pos_threshold=7.0, neg_threshold=5.0):
     model.train()
 
     # Pre-compute graph node embeddings ONCE per epoch (detached)
@@ -312,6 +315,78 @@ def train_epoch(model, graph, train_data, optimizer, device, batch_size=64,
         graph_dev = graph.to(device) if graph.x_3di.device != device else graph
         node_embs = model.encode_graph(graph_dev)  # (N, hidden_dim)
 
+    # Multi-task path: protein-centric batching with InfoNCE + MSE
+    use_multitask = hasattr(model, 'proj_head') and model.proj_head is not None
+    if use_multitask:
+        from idr_gat.data.protein_batch_sampler import ProteinBatchSampler
+        from idr_gat.model.affinity_gat import infonce_loss, curriculum_weights
+
+        sampler = ProteinBatchSampler(
+            train_data, proteins_per_batch=proteins_per_batch,
+            pos_per_protein=pos_per_protein, hard_neg_per_protein=hard_neg_per_protein,
+            mid_per_protein=mid_per_protein, pos_threshold=pos_threshold,
+            neg_threshold=neg_threshold,
+        )
+
+        total_loss, total_mse, total_nce, n_batches = 0.0, 0.0, 0.0, 0
+
+        for batch in sampler:
+            anchor_list, smi_list, tgt_list, lbl_list = [], [], [], []
+            for item in batch:
+                smi = item["smiles"]
+                if smi not in smiles_lookup:
+                    continue
+                anc = item["anchors"][0]
+                anchor_list.append(anc["anchor_node"])
+                smi_list.append(smiles_lookup[smi])
+                tgt_list.append(item["pki"])
+                lbl_list.append(item["label"])
+
+            if not anchor_list:
+                continue
+
+            b_anchors = torch.tensor(anchor_list, dtype=torch.long, device=device)
+            b_smi_enc = smiles_tensor[torch.tensor(smi_list, dtype=torch.long, device=device)]
+            b_targets = torch.tensor(tgt_list, dtype=torch.float32, device=device)
+            b_labels = torch.tensor(lbl_list, dtype=torch.long, device=device)
+
+            prot_emb = node_embs[b_anchors]
+            drug_emb = model.drug_encoder(b_smi_enc)
+            interaction = model.cross_attn(prot_emb, drug_emb)
+
+            preds = model.head(interaction).squeeze(-1)
+            mse = F.mse_loss(preds, b_targets)
+
+            proj = F.normalize(model.proj_head(interaction), dim=1)
+            pos_mask = b_labels == 1
+            neg_mask = b_labels == 0
+            if pos_mask.sum() > 0 and neg_mask.sum() > 0:
+                nce = infonce_loss(proj[pos_mask], proj[pos_mask], proj[neg_mask])
+            else:
+                nce = torch.tensor(0.0, device=device)
+
+            alpha, beta = curriculum_weights(epoch, max_epochs)
+            loss = alpha * mse + beta * nce
+
+            optimizer.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            optimizer.step()
+
+            total_loss += loss.item()
+            total_mse += mse.item()
+            total_nce += nce.item()
+            n_batches += 1
+
+        alpha, beta = curriculum_weights(epoch, max_epochs)
+        logger.info("  [curriculum] alpha=%.2f beta=%.2f | mse=%.4f nce=%.4f total=%.4f",
+                    alpha, beta,
+                    total_mse / max(n_batches, 1),
+                    total_nce / max(n_batches, 1),
+                    total_loss / max(n_batches, 1))
+        return total_loss / max(n_batches, 1)
+
+    # Fallback: original MSE-only training
     # Pre-build flat tensors for ALL training data
     flat = prebuild_flat_tensors(train_data, smiles_lookup)
     if flat["n_items"] == 0:
@@ -479,6 +554,14 @@ def main():
     parser.add_argument("--n-conformations", type=int, default=10)
     parser.add_argument("--max-drugs", type=int, default=100)
     parser.add_argument("--anchor-cache", default=None, help="Cache file for precomputed anchors")
+    parser.add_argument("--proj-dim", type=int, default=128,
+                        help="Projection head dim for InfoNCE (0=disable, MSE only)")
+    parser.add_argument("--pos-threshold", type=float, default=7.0)
+    parser.add_argument("--neg-threshold", type=float, default=5.0)
+    parser.add_argument("--proteins-per-batch", type=int, default=4)
+    parser.add_argument("--pos-per-protein", type=int, default=8)
+    parser.add_argument("--hard-neg-per-protein", type=int, default=8)
+    parser.add_argument("--mid-per-protein", type=int, default=4)
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -562,6 +645,7 @@ def main():
         hidden_dim=args.hidden_dim,
         gat_layers=args.gat_layers,
         dropout=args.dropout,
+        proj_dim=args.proj_dim,
     ).to(device)
 
     n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -580,6 +664,13 @@ def main():
         train_loss = train_epoch(
             model, graph, train_data, optimizer, device, args.batch_size, scaler,
             smiles_tensor=smiles_tensor, smiles_lookup=smiles_lookup,
+            epoch=epoch, max_epochs=args.epochs,
+            proteins_per_batch=args.proteins_per_batch,
+            pos_per_protein=args.pos_per_protein,
+            hard_neg_per_protein=args.hard_neg_per_protein,
+            mid_per_protein=args.mid_per_protein,
+            pos_threshold=args.pos_threshold,
+            neg_threshold=args.neg_threshold,
         )
         val_loss = validate(
             model, graph, val_data, device,
