@@ -64,6 +64,43 @@ class CrossAttention(nn.Module):
         return self.norm(out)
 
 
+def infonce_loss(
+    anchor: torch.Tensor,
+    positive: torch.Tensor,
+    negatives: torch.Tensor,
+    temperature: float = 0.07,
+) -> torch.Tensor:
+    """Compute InfoNCE loss.
+
+    Args:
+        anchor: (B, D) L2-normalized embeddings
+        positive: (B, D) L2-normalized embeddings (one positive per anchor)
+        negatives: (N, D) L2-normalized embeddings (shared negatives)
+        temperature: softmax temperature
+    Returns:
+        scalar loss
+    """
+    if negatives.size(0) == 0:
+        return torch.tensor(0.0, device=anchor.device, requires_grad=True)
+
+    pos_sim = (anchor * positive).sum(dim=1) / temperature
+    neg_sim = torch.mm(anchor, negatives.t()) / temperature
+    logits = torch.cat([pos_sim.unsqueeze(1), neg_sim], dim=1)
+    labels = torch.zeros(anchor.size(0), dtype=torch.long, device=anchor.device)
+    return F.cross_entropy(logits, labels)
+
+
+def curriculum_weights(epoch: int, max_epochs: int) -> tuple[float, float]:
+    """Compute curriculum MSE (alpha) and InfoNCE (beta) weights.
+
+    Linear interpolation: alpha 0.2->0.8, beta 0.8->0.2.
+    """
+    progress = min(epoch / max(max_epochs, 1), 1.0)
+    alpha = 0.2 + 0.6 * progress
+    beta = 0.8 - 0.6 * progress
+    return alpha, beta
+
+
 class AffinityGAT(nn.Module):
     """Full-graph GATv2 + SMILES CNN + cross-attention for affinity prediction.
 
@@ -90,6 +127,7 @@ class AffinityGAT(nn.Module):
         smiles_embed_dim: int = 128,
         smiles_filters: int = 32,
         cross_attn_heads: int = 4,
+        proj_dim: int = 0,
     ):
         super().__init__()
         self.threedi_embed = nn.Embedding(threedi_vocab_size, threedi_embed_dim, padding_idx=20)
@@ -124,6 +162,8 @@ class AffinityGAT(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(hidden_dim // 2, 1),
         )
+
+        self.proj_head = nn.Linear(hidden_dim, proj_dim) if proj_dim > 0 else None
 
     def build_node_features(self, data) -> torch.Tensor:
         """Build per-node features from 3Di tokens + ESM-2 embeddings."""
@@ -200,3 +240,60 @@ class AffinityGAT(nn.Module):
     ) -> torch.Tensor:
         preds = self.forward(graph_data, anchor_indices, smiles_indices)
         return F.mse_loss(preds, targets)
+
+    def project(
+        self,
+        graph_data,
+        anchor_indices: torch.Tensor,
+        smiles_indices: torch.Tensor,
+    ) -> torch.Tensor:
+        """Project protein-drug pairs to L2-normalized contrastive space."""
+        device = smiles_indices.device
+        graph_on_device = graph_data.to(device) if graph_data.x_3di.device != device else graph_data
+        node_embs = self.encode_graph(graph_on_device)
+        prot_emb = node_embs[anchor_indices]
+        drug_emb = self.drug_encoder(smiles_indices)
+        interaction = self.cross_attn(prot_emb, drug_emb)
+        return F.normalize(self.proj_head(interaction), dim=1)
+
+    def compute_multitask_loss(
+        self,
+        graph_data,
+        anchor_indices: torch.Tensor,
+        smiles_indices: torch.Tensor,
+        targets: torch.Tensor,
+        labels: torch.Tensor,
+        epoch: int = 0,
+        max_epochs: int = 200,
+    ) -> dict[str, torch.Tensor]:
+        """Compute combined InfoNCE + MSE loss with curriculum weighting.
+
+        Args:
+            labels: (B,) int — 1=positive (pKi>=7), 0=hard_negative (pKi<=5), -1=middle
+        """
+        device = smiles_indices.device
+        graph_on_device = graph_data.to(device) if graph_data.x_3di.device != device else graph_data
+        node_embs = self.encode_graph(graph_on_device)
+        prot_emb = node_embs[anchor_indices]
+        drug_emb = self.drug_encoder(smiles_indices)
+        interaction = self.cross_attn(prot_emb, drug_emb)
+
+        preds = self.head(interaction).squeeze(-1)
+        mse = F.mse_loss(preds, targets)
+
+        if self.proj_head is not None:
+            proj = F.normalize(self.proj_head(interaction), dim=1)
+            pos_mask = labels == 1
+            neg_mask = labels == 0
+
+            if pos_mask.sum() > 0 and neg_mask.sum() > 0:
+                nce = infonce_loss(proj[pos_mask], proj[pos_mask], proj[neg_mask])
+            else:
+                nce = torch.tensor(0.0, device=device, requires_grad=True)
+        else:
+            nce = torch.tensor(0.0, device=device, requires_grad=True)
+
+        alpha, beta = curriculum_weights(epoch, max_epochs)
+        total = alpha * mse + beta * nce
+
+        return {"total": total, "mse": mse, "infonce": nce, "preds": preds}
