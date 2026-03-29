@@ -1,0 +1,47 @@
+# Data (downloaded via reproduce scripts)
+data/raw/
+data/processed/
+data/graphs/
+
+# Model checkpoints
+models/**/*.pt
+models/**/*.pth
+
+# Cache files
+data/**/*.npz
+data/**/*.pt
+
+# Environment
+.venv*/
+.DS_Store
+cookies.txt
+__pycache__/
+**/__pycache__/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+.mypy_cache/
+
+# Artifacts
+backups/
+save_folder/
+logs/
+.superpowers/
+tools/
+
+# Paper build outputs
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.fdb_latexmk
+paper/*.fls
+paper/*.log
+paper/*.out
+paper/*.synctex.gz
+paper/*.toc
+
+# Local notes and ad-hoc logs
+CLAUDE.md
+*.log
+presentation/*.pptx
