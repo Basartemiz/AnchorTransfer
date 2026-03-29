@@ -99,12 +99,15 @@ def build_conformation_graph(
     graph.conformation_ids = conformation_ids or [f"conf_{i}" for i in range(len(protein_ids))]
     graph.num_nodes = len(protein_ids)
 
-    # Attach ESM-2 embeddings (same for all conformations of same protein)
+    # Attach ESM-2 embeddings (per domain if available, else per protein)
     if esm2_embeddings is not None:
         embed_dim = next(iter(esm2_embeddings.values())).shape[0]
         esm2_matrix = np.zeros((len(protein_ids), embed_dim), dtype=np.float32)
-        for i, pid in enumerate(protein_ids):
-            if pid in esm2_embeddings:
+        cids = conformation_ids or [f"conf_{i}" for i in range(len(protein_ids))]
+        for i, (pid, cid) in enumerate(zip(protein_ids, cids)):
+            if cid in esm2_embeddings:
+                esm2_matrix[i] = esm2_embeddings[cid]
+            elif pid in esm2_embeddings:
                 esm2_matrix[i] = esm2_embeddings[pid]
         graph.x_esm2 = torch.tensor(esm2_matrix, dtype=torch.float32)
 
