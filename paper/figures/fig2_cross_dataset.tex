@@ -1,0 +1,53 @@
+\documentclass[border=5mm]{standalone}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+
+\begin{document}
+\begin{tikzpicture}
+\begin{axis}[
+    ybar,
+    bar width=7pt,
+    width=16cm,
+    height=9cm,
+    ylabel={AUROC},
+    ylabel style={font=\large},
+    symbolic x coords={DTC Test, Davis, GLASS, IDP Bench, IDPs, Ordered},
+    xtick=data,
+    x tick label style={font=\normalsize},
+    ymin=0.35, ymax=1.0,
+    legend style={at={(0.5,0.97)}, anchor=north, font=\normalsize, legend columns=3, fill=white, fill opacity=0.85, draw opacity=1, text opacity=1},
+    title={\textbf{Cross-Dataset Generalization}},
+    title style={font=\Large, at={(0.5,1.05)}, anchor=south},
+    grid=major,
+    grid style={gray!15},
+    ymajorgrids=true,
+    every axis plot/.append style={thick},
+]
+
+\addplot[fill=blue!70] coordinates {
+    (DTC Test, 0.889) (Davis, 0.775) (GLASS, 0.656) (IDP Bench, 0.628) (IDPs, 0.480) (Ordered, 0.661)
+};
+\addplot[fill=blue!35] coordinates {
+    (DTC Test, 0.870) (Davis, 0.704) (GLASS, 0.656) (IDP Bench, 0.666) (IDPs, 0.620) (Ordered, 0.634)
+};
+\addplot[fill=red!55] coordinates {
+    (DTC Test, 0.898) (Davis, 0.534) (GLASS, 0.582) (IDP Bench, 0.598) (IDPs, 0.518) (Ordered, 0.583)
+};
+\addplot[fill=green!50] coordinates {
+    (DTC Test, 0.910) (Davis, 0.530) (GLASS, 0.577) (IDP Bench, 0.583) (IDPs, 0.467) (Ordered, 0.607)
+};
+\addplot[fill=orange!55] coordinates {
+    (DTC Test, 0.906) (Davis, 0.559) (GLASS, 0.577) (IDP Bench, 0.623) (IDPs, 0.626) (Ordered, 0.590)
+};
+\addplot[fill=purple!40] coordinates {
+    (DTC Test, 0.768) (Davis, 0.599) (GLASS, 0.577) (IDP Bench, 0.586) (IDPs, 0.472) (Ordered, 0.613)
+};
+
+\legend{V2-650M, V2-35M, DeepDTA, ESM-DTA, Drug-Anchor, ConPlex}
+
+\addplot[dashed, gray, thick, forget plot] coordinates {(DTC Test, 0.5) (Ordered, 0.5)};
+\node[font=\small, gray] at (axis cs:Davis, 0.48) {random};
+
+\end{axis}
+\end{tikzpicture}
+\end{document}

@@ -1,23 +1,15 @@
 [project]
-name = "idr-gat"
+name = "anchor-transfer-dta"
 version = "1.0.0"
-description = "Structural knowledge transfer for IDP drug interaction prediction"
+description = "Anchor Transfer Learning for Cross-Dataset Drug-Target Affinity Prediction"
 requires-python = ">=3.11"
 dependencies = [
     "torch>=2.1",
-    "torch-geometric>=2.4",
-    "rdkit>=2023.9",
-    "MDAnalysis>=2.6",
     "pandas>=2.1",
     "numpy>=1.26",
     "scikit-learn>=1.3",
     "fair-esm>=2.0",
-    "requests>=2.31",
-    "biopython>=1.82",
     "tqdm>=4.66",
-    "proteinflow>=2.6",
-    "prody>=2.4",
-    "scipy>=1.11",
 ]
 
 [project.optional-dependencies]
