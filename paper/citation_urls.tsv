@@ -1,0 +1,46 @@
+key	year	title	url	source
+altae2017low	2017	Low data drug discovery with one-shot learning	https://doi.org/10.1021/acscentsci.6b00367	crossref-doi-or-publisher
+ba2016layernorm	2016	Layer normalization	https://arxiv.org/abs/1607.06450	manual-arxiv
+baek2021rosettafold	2021	Accurate prediction of protein structures and interactions using a three-track neural network	https://doi.org/10.1126/science.abj8754	crossref-doi-or-publisher
+bai2023drugban	2023	Interpretable bilinear attention network with domain adaptation improves drug--target prediction	https://doi.org/10.1038/s42256-022-00605-1	crossref-doi-or-publisher
+brody2022gatv2	2022	How attentive are graph attention networks?	https://arxiv.org/abs/2105.14491	manual-arxiv
+caruana1997multitask	1997	Multitask learning	https://doi.org/10.1023/a:1007379606734	crossref-doi-or-publisher
+chan2015glass	2015	{GLASS}: a comprehensive database for experimentally validated {GPCR}-ligand associations	https://doi.org/10.1093/bioinformatics/btv302	crossref-doi-or-publisher
+chen2018rise	2018	The rise of deep learning in drug discovery	https://doi.org/10.1016/j.drudis.2018.01.039	crossref-doi-or-publisher
+chen2020simclr	2020	A simple framework for contrastive learning of visual representations	https://proceedings.mlr.press/v119/chen20j.html	manual-pmlr
+corso2023diffdock	2023	DiffDock: Diffusion steps, twists, and turns for molecular docking	https://arxiv.org/abs/2210.01776	manual-arxiv
+davis2011kinase	2011	Comprehensive analysis of kinase inhibitor selectivity	https://doi.org/10.1038/nbt.1990	crossref-doi-or-publisher
+dunker2002idps	2002	Intrinsic disorder and protein function	https://doi.org/10.1021/bi012159+	crossref-doi-or-publisher
+elnaggar2022prottrans	2022	ProtTrans: toward understanding the language of life through self-supervised learning	https://doi.org/10.1109/tpami.2021.3095381	crossref-doi-or-publisher
+gilson2016bindingdb	2016	BindingDB in 2015: a public database for medicinal chemistry, computational chemistry and systems pharmacology	https://doi.org/10.1093/nar/gkv1072	crossref-doi-or-publisher
+gonen2005concordance	2005	Concordance probability and discriminatory power in proportional hazards regression	https://doi.org/10.1093/biomet/92.4.965	crossref-doi-or-publisher
+he2017simboost	2017	SimBoost: a read-across approach for predicting drug--target binding affinities using gradient boosting machines	https://doi.org/10.1186/s13321-017-0209-z	crossref-doi-or-publisher
+huang2021moltrans	2021	MolTrans: molecular interaction transformer for drug--target interaction prediction	https://doi.org/10.1093/bioinformatics/btaa880	crossref-doi-or-publisher
+jumper2021alphafold	2021	Highly accurate protein structure prediction with AlphaFold	https://doi.org/10.1038/s41586-021-03819-2	crossref-doi-or-publisher
+kitchen2004docking	2004	Docking and scoring in virtual screening for drug discovery: methods and applications	https://doi.org/10.1038/nrd1549	crossref-doi-or-publisher
+li2022effective	2022	Effective drug--target interaction prediction with mutual interaction neural network	https://doi.org/10.1093/bioinformatics/btac377	crossref-doi-or-publisher
+lin2023esm2	2023	Evolutionary-scale prediction of atomic-level protein structure with a language model	https://doi.org/10.1126/science.ade2574	crossref-doi-or-publisher
+loshchilov2019adamw	2019	Decoupled weight decay regularization	https://arxiv.org/abs/1711.05101	manual-arxiv
+mayr2018deeptox	2018	Large-scale comparison of machine learning methods for drug target prediction on {ChEMBL}	https://doi.org/10.1039/c8sc00148k	crossref-doi-or-publisher
+nguyen2021graphdta	2021	GraphDTA: predicting drug--target binding affinity with graph neural networks	https://doi.org/10.1093/bioinformatics/btaa921	crossref-doi-or-publisher
+ozturk2018deepdta	2018	DeepDTA: deep drug--target binding affinity prediction	https://doi.org/10.1093/bioinformatics/bty593	crossref-doi-or-publisher
+ozturk2019widedta	2019	WideDTA: prediction of drug-target binding affinity	https://arxiv.org/abs/1902.04166	manual-arxiv
+pahikkala2015kronrls	2015	Toward more realistic drug--target interaction predictions	https://doi.org/10.1093/bib/bbu010	crossref-doi-or-publisher
+pan2010transfer	2010	A survey on transfer learning	https://doi.org/10.1109/tkde.2009.191	crossref-doi-or-publisher
+pushpakom2019drug_repurposing	2019	Drug repurposing: progress, challenges and recommendations	https://doi.org/10.1038/nrd.2018.168	crossref-doi-or-publisher
+rao2019evaluating	2019	Evaluating protein transfer learning with {TAPE}	https://proceedings.neurips.cc/paper/2019/hash/37f65c068b7723cd7809ee2d31d7861c-Abstract.html	manual-neurips
+rives2021biological	2021	Biological structure and function emerge from scaling unsupervised learning to 250 million protein sequences	https://doi.org/10.1073/pnas.2016239118	crossref-doi-or-publisher
+rogers2010morgan	2010	Extended-connectivity fingerprints	https://doi.org/10.1021/ci100050t	crossref-doi-or-publisher
+santofimia2020idp_drug	2020	Targeting intrinsically disordered proteins involved in cancer	https://doi.org/10.1007/s00018-019-03347-3	crossref-doi-or-publisher
+singh2023conplex	2023	Contrastive learning in protein language space predicts interactions between drugs and protein targets	https://doi.org/10.1073/pnas.2220778120	crossref-doi-or-publisher
+tang2014dtc	2014	Making sense of large-scale kinase inhibitor bioactivity data sets: a comparative and integrative analysis	https://doi.org/10.1021/ci400709d	crossref-doi-or-publisher
+tompa2012idps	2012	Intrinsically disordered proteins: a 10-year recap	https://doi.org/10.1016/j.tibs.2012.08.004	crossref-doi-or-publisher
+tsubaki2019compound	2019	Compound--protein interaction prediction with end-to-end learning of neural networks for graphs and sequences	https://doi.org/10.1093/bioinformatics/bty535	crossref-doi-or-publisher
+uversky2019idps	2019	Intrinsically disordered proteins and their ``mysterious'' (meta) physics	https://doi.org/10.3389/fphy.2019.00010	crossref-doi-or-publisher
+vamathevan2019ai_drug	2019	Applications of machine learning in drug discovery and development	https://doi.org/10.1038/s41573-019-0024-5	crossref-doi-or-publisher
+velickovic2018gat	2018	Graph attention networks	https://arxiv.org/abs/1710.10903	manual-arxiv
+weininger1988smiles	1988	SMILES, a chemical language and information system. 1. {I}ntroduction to methodology and encoding rules	https://doi.org/10.1021/ci00057a005	crossref-doi-or-publisher
+wright2015idps	2015	Intrinsically disordered proteins in cellular signalling and regulation	https://doi.org/10.1038/nrm3920	crossref-doi-or-publisher
+yang2022mgraphdta	2022	MGraphDTA: deep multiscale graph neural network for explainable drug--target binding affinity prediction	https://doi.org/10.1039/d1sc05180f	crossref-doi-or-publisher
+zhao2023attentiondta	2023	AttentionDTA: drug--target binding affinity prediction by sequence-based deep learning with attention mechanism	https://doi.org/10.1109/tcbb.2022.3170365	crossref-doi-or-publisher
+zhuang2021transfer	2021	A comprehensive survey on transfer learning	https://doi.org/10.1109/jproc.2020.3004555	crossref-doi-or-publisher

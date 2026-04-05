@@ -1,0 +1,49 @@
+\section{Experimental Setup}
+
+\subsection{Training Datasets}
+
+We trained the main models on Drug Target Commons (DTC) only \cite{tang2014dtc}, comprising 401,978 drug-target interactions spanning 2,827 proteins and 164,831 drugs. We retained pKi values derived from Ki measurements in order to keep the supervision signal on a consistent inhibition-constant scale. Proteins were split at the entity level into 80\% training, 10\% validation and 10\% test partitions with random seed 42, ensuring that proteins in the evaluation partitions were not observed during training.
+
+BindingDB \cite{gilson2016bindingdb} was used only as a robustness check rather than as a second training source. In particular, a BindingDB-trained V2 model reached AUROC 0.665 on Davis, versus 0.714 for the matched DTC-trained V2 model, indicating that the main conclusions do not depend on dual-dataset training.
+
+\subsection{External Evaluation Benchmarks}
+
+External evaluation was designed to stress cross-dataset generalization rather than within-dataset interpolation. For all external benchmarks, overlap with DTC was explicitly checked at the protein, drug and interaction levels where applicable, and datasets with excessive overlap were excluded from analysis.
+
+The Davis kinase benchmark \cite{davis2011kinase} contains 30,056 kinase-drug interactions over 442 proteins and 68 drugs. Davis reports dissociation constants (Kd) rather than inhibition constants (Ki). We treat pKd and pKi interchangeably for ranking evaluation, as both measure binding strength on comparable logarithmic scales. This is a common simplification in DTA benchmarks. Davis provides a strict compound novelty test relative to DTC, with 0\% drug overlap, and is highly imbalanced after thresholding because approximately 70\% of values are censored at pKi$=5$.
+
+We additionally analyze the Metz kinase benchmark, which spans 35,259 interactions over 170 proteins and 1,423 drugs. Unlike Davis, Metz exhibits extensive overlap with the DTC training reference at both the protein and chemical levels. For the benchmark visualization analyses in Section~\ref{sec:benchmark_heatmaps}, we therefore report \emph{two} protocols side by side: an \emph{unfiltered} view that retains all anchorable benchmark interactions after model-coverage checks, and a \emph{filtered} view that removes proteins overlapping the DTC training set by entity or exact sequence and removes drugs overlapping the DTC training set by canonical SMILES or full InChIKey before anchors are defined. Under this stricter filtered protocol, Davis contracts from 30,056 interactions over 442 proteins and 68 drugs to 854 interactions over 122 proteins and 7 drugs, while Metz contracts from 35,259 interactions over 170 proteins and 1,423 drugs to 374 interactions over 9 proteins and 115 drugs.
+
+\subsection{Overlap Verification and Baselines}
+
+Table~\ref{tab:overlap_verification} summarizes the verified overlap statistics for the external dataset. Davis satisfies zero drug overlap with DTC. Notably, 77\% of Davis proteins share sequences with DTC training proteins, meaning the evaluation primarily tests compound novelty (new drugs for known protein families) rather than dual novelty.
+
+We compared Anchor Transfer Learning against three representative baselines. DeepDTA \cite{ozturk2018deepdta} serves as a strong sequence-and-SMILES convolutional baseline for pairwise affinity prediction. We report a modified re-implementation of ConPlex as ConPlex*, using ESM-2 embeddings and a SMILES CNN encoder instead of the original ProtBERT and Morgan fingerprints, to isolate the effect of the contrastive training objective from encoder choice. We also evaluated ESM-DTA as a second ESM-based baseline to test whether gains arise from stronger protein representations alone or from the anchor-transfer formulation itself. We refer to the anchor transfer model with ESM-2 35M as V2-35M, with ESM-2 650M as V2-650M, the drug-side anchor variant as Drug-Anchor, and the ESM-2 baseline without anchors as ESM-DTA.
+
+\begin{table}[t]
+\centering
+\caption{Overlap between DTC training set and the Davis benchmark. Raw SMILES comparison (commonly used in DTA literature) reports 0\% drug overlap, but canonical chemical identity reveals 83.8\% overlap. All canonical duplicates are excluded from the anchor retrieval pool before evaluation.}
+\label{tab:overlap_verification}
+\begin{tabular}{lcc}
+\toprule
+Overlap level & Davis--DTC & Note \\
+\midrule
+Protein (by sequence) & 77\% & Same kinases, different drugs \\
+Drug (raw SMILES) & 0\% & String identity only \\
+Drug (canonical SMILES) & 83.8\% & True molecular identity \\
+Drug (InChIKey) & 89.7\% & Gold-standard identity \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Evaluation Protocol and Hyperparameters}
+
+External benchmarks were evaluated with anchors retrieved from the DTC training set by Tanimoto chemical similarity (chirality-aware Morgan fingerprints, radius 2, 2048 bits). All canonical chemical duplicates of evaluation drugs are explicitly excluded from the retrieval pool before searching, ensuring genuine zero molecular overlap between retrieved anchors' drugs and evaluation compounds. For each query drug, we select the most similar remaining DTC drug whose strongest binder has pKi~$\geq 7$ as the anchor protein. We report AUROC, concordance index (CI) \cite{gonen2005concordance}, average precision (AUPRC), and root mean squared error (RMSE).
+
+For the benchmark heatmaps and quartile-wise distribution plots, we compare the unfiltered and filtered protocols directly. The unfiltered protocol retains all anchorable benchmark interactions after requiring model coverage (protein sequences plus ESM embeddings where needed). The filtered protocol additionally removes benchmark proteins overlapping the DTC training set at the entity or exact-sequence level and benchmark drugs overlapping the DTC training set at the canonical-SMILES or full-InChIKey level. These figures report \emph{per-protein} CI summaries rather than pooled interaction-level metrics. We restrict the visual comparison to V2 oracle/weakest/random controls, DeepDTA, ConPlex*, and ESM-DTA. DrugBAN is omitted from the main-paper comparison because its graph-based drug encoder changes the input modality and would conflate the anchor-transfer question with a separate molecular representation change.
+
+Unless otherwise stated, all models were trained with batch size 512 using AdamW \cite{loshchilov2019adamw} with learning rate $10^{-3}$. We applied cosine annealing learning-rate decay, early stopping with patience 20 based on validation performance, and gradient clipping with maximum norm 1.0. These hyperparameters were held fixed across experiments to isolate the effect of the modeling choice rather than benchmark-specific tuning.
+
+\subsection{Code Availability}
+
+Code, benchmark preprocessing, overlap-audit utilities, and figure-generation scripts are available at \url{https://github.com/Basartemiz/IDR-GAT}. The repository includes the training and evaluation entry points used for the main DTC, Davis, and Metz analyses.
