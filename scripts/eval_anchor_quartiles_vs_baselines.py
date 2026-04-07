@@ -14,6 +14,9 @@ import logging
 import random
 from pathlib import Path
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
@@ -23,6 +26,13 @@ from sklearn.metrics import roc_auc_score
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
+
+MODEL_COLORS = {
+    "V2": "#1f77b4",
+    "DeepDTA": "#ff7f0e",
+    "ESM-DTA": "#2ca02c",
+    "ConPlex": "#d62728",
+}
 
 CHARISOSMISET = {
     "#": 29, "%": 30, ")": 31, "(": 1, "+": 32, "-": 33, "/": 34, ".": 2,
@@ -116,6 +126,153 @@ def add_benchmark_sequences(df, seqs):
         if uid not in seqs:
             seqs[uid] = seq
     return len(seqs) - before
+
+
+def draw_quartile_metric_plot(bench_name, rows_df, out_path, v2_label):
+    quartile_order = ["Q1 weakest", "Q2", "Q3", "Q4 strongest"]
+    display_names = {
+        "V2": v2_label,
+        "DeepDTA": "DeepDTA",
+        "ESM-DTA": "ESM-DTA",
+        "ConPlex": "ConPlex",
+    }
+    metrics = [
+        ("AUROC", "AUROC"),
+        ("CI", "CI"),
+        ("RMSE", "RMSE"),
+    ]
+
+    fig, axes = plt.subplots(1, 3, figsize=(15.5, 4.8))
+    x = np.arange(len(quartile_order))
+
+    for ax, (title, suffix) in zip(axes, metrics):
+        for model_name in ["V2", "DeepDTA", "ESM-DTA", "ConPlex"]:
+            col = f"{model_name}_{suffix.lower()}"
+            if col not in rows_df.columns:
+                continue
+            ys = []
+            for quartile in quartile_order:
+                sub = rows_df[rows_df["quartile"] == quartile]
+                if sub.empty:
+                    ys.append(np.nan)
+                else:
+                    ys.append(sub.iloc[0][col])
+            ax.plot(
+                x,
+                ys,
+                marker="o",
+                linewidth=2.0,
+                markersize=6,
+                color=MODEL_COLORS[model_name],
+                label=display_names[model_name],
+            )
+        ax.set_xticks(x)
+        ax.set_xticklabels(["Q1", "Q2", "Q3", "Q4"])
+        ax.set_title(title)
+        ax.grid(axis="y", alpha=0.25)
+        if suffix in ("AUROC", "CI"):
+            ax.set_ylim(0.0, 1.0)
+        else:
+            finite_vals = rows_df[[f"{m}_{suffix.lower()}" for m in ["V2", "DeepDTA", "ESM-DTA", "ConPlex"] if f"{m}_{suffix.lower()}" in rows_df.columns]].to_numpy(dtype=float)
+            finite_vals = finite_vals[np.isfinite(finite_vals)]
+            if finite_vals.size:
+                ax.set_ylim(0.0, max(float(np.nanmax(finite_vals)) * 1.15, 1.0))
+
+    axes[0].set_ylabel("Metric Value")
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 1.04), ncol=4, frameon=False)
+    fig.suptitle(f"{bench_name}: Anchor Quartile Analysis", fontsize=15, fontweight="bold", y=1.08)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+
+def build_per_protein_quartile_metrics(subset, pred_col, model_name):
+    rows = []
+    for quartile, qdf in subset.groupby("anchor_q"):
+        for uid, pdf in qdf.groupby("uniprot_id"):
+            preds = pdf[pred_col].values
+            trues = pdf["pki"].values
+            if len(preds) == 0:
+                continue
+            rows.append(
+                {
+                    "quartile": str(quartile),
+                    "uniprot_id": uid,
+                    "model": model_name,
+                    "n": int(len(pdf)),
+                    "ci": ci_fn(trues, preds),
+                    "rmse": float(np.sqrt(np.mean((trues - preds) ** 2))),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def draw_per_protein_distribution_plot(bench_name, protein_df, metric, out_path, v2_label):
+    quartile_order = ["Q1 weakest", "Q2", "Q3", "Q4 strongest"]
+    model_order = ["V2", "DeepDTA", "ESM-DTA", "ConPlex"]
+    display_names = {
+        "V2": v2_label,
+        "DeepDTA": "DeepDTA",
+        "ESM-DTA": "ESM-DTA",
+        "ConPlex": "ConPlex",
+    }
+
+    fig, ax = plt.subplots(figsize=(12.8, 5.8))
+    group_width = 0.78
+    box_width = group_width / len(model_order)
+    positions = np.arange(len(quartile_order)) * 1.6
+
+    for model_idx, model_name in enumerate(model_order):
+        model_positions = positions - group_width / 2 + box_width / 2 + model_idx * box_width
+        box_data = []
+        for quartile in quartile_order:
+            vals = protein_df[
+                (protein_df["model"] == model_name) & (protein_df["quartile"] == quartile)
+            ][metric].dropna().tolist()
+            box_data.append(vals if vals else [np.nan])
+        bp = ax.boxplot(
+            box_data,
+            positions=model_positions,
+            widths=box_width * 0.9,
+            patch_artist=True,
+            showfliers=False,
+            manage_ticks=False,
+        )
+        color = MODEL_COLORS[model_name]
+        for patch in bp["boxes"]:
+            patch.set_facecolor(color)
+            patch.set_alpha(0.78)
+            patch.set_edgecolor("#333333")
+        for key in ("whiskers", "caps", "medians"):
+            for artist in bp[key]:
+                artist.set_color("#333333")
+                artist.set_linewidth(1.0)
+
+    ax.set_xticks(positions)
+    ax.set_xticklabels(["Q1", "Q2", "Q3", "Q4"])
+    ax.set_xlabel("Anchor Quartile")
+    if metric == "ci":
+        ax.set_ylabel("Per-Protein CI")
+        ax.set_ylim(0.0, 1.0)
+        title_metric = "CI"
+    else:
+        ax.set_ylabel("Per-Protein RMSE")
+        finite_vals = protein_df[metric].to_numpy(dtype=float)
+        finite_vals = finite_vals[np.isfinite(finite_vals)]
+        if finite_vals.size:
+            ax.set_ylim(0.0, max(float(np.nanmax(finite_vals)) * 1.15, 1.0))
+        title_metric = "RMSE"
+    ax.set_title(f"{bench_name}: Per-Protein {title_metric} by Anchor Quartile", fontsize=15, fontweight="bold")
+    ax.grid(axis="y", alpha=0.25)
+    legend_handles = [
+        plt.Line2D([0], [0], color=MODEL_COLORS[m], lw=6, label=display_names[m])
+        for m in model_order
+    ]
+    ax.legend(handles=legend_handles, loc="upper center", bbox_to_anchor=(0.5, -0.14), ncol=4, frameon=False)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
 
 
 def build_dtc_train_filters(seqs, esm2, seed):
@@ -315,6 +472,14 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--disable-overlap-filter", action="store_true",
                         help="Disable training overlap filtering (not recommended).")
+    parser.add_argument("--benchmarks", nargs="+", default=["Davis", "Metz"],
+                        help="Benchmarks to run (default: Davis Metz).")
+    parser.add_argument("--v2-kind", choices=["v2", "v2_latent_attn"], default="v2",
+                        help="Anchor model variant to load.")
+    parser.add_argument("--v2-path", default=None,
+                        help="Optional checkpoint override for the anchor model.")
+    parser.add_argument("--out-prefix", default="anchor_quartile_vs_baselines",
+                        help="Output prefix under results/.")
     args = parser.parse_args()
 
     random.seed(args.seed); np.random.seed(args.seed); torch.manual_seed(args.seed)
@@ -327,9 +492,15 @@ def main():
     train_prots, train_seqs, train_drugs = build_dtc_train_filters(base_seqs, esm2, args.seed)
 
     # Load V2
-    from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2
-    v2 = AnchorTransferDTAv2(esm2_dim=480).to(device)
-    ck = torch.load("models/v2_dtc/best_model.pt", map_location=device, weights_only=False)
+    if args.v2_kind == "v2_latent_attn":
+        from idr_gat.model.anchor_transfer_latent_attn import AnchorTransferLatentAttn
+        v2 = AnchorTransferLatentAttn(esm2_dim=480).to(device)
+        default_v2_path = "models/v2_latent_attn_dtc/best_model.pt"
+    else:
+        from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2
+        v2 = AnchorTransferDTAv2(esm2_dim=480).to(device)
+        default_v2_path = "models/v2_dtc/best_model.pt"
+    ck = torch.load(args.v2_path or default_v2_path, map_location=device, weights_only=False)
     v2.load_state_dict(ck["model_state_dict"]); v2.eval()
 
     # Load DeepDTA
@@ -369,11 +540,16 @@ def main():
 
     all_results = {}
 
-    for bench_name, bench_path, rename_cols in [
+    benchmark_specs = [
         ("Davis", "data/raw/davis/davis_benchmark.csv",
          {"protein_name": "uniprot_id", "drug_smiles": "ligand_smiles", "pKd": "pki"}),
+        ("Metz", "data/raw/metz_benchmark.csv", {}),
         ("PDBbind", "data/raw/pdbbind_benchmark.csv", {}),
-    ]:
+    ]
+
+    for bench_name, bench_path, rename_cols in benchmark_specs:
+        if bench_name not in set(args.benchmarks):
+            continue
         if not Path(bench_path).exists(): continue
         df = pd.read_csv(bench_path)
         if rename_cols:
@@ -385,6 +561,14 @@ def main():
         # dtc_sequences.json for synthetic IDs (e.g., PDB_00001).
         seqs = dict(base_seqs)
         added = add_benchmark_sequences(df, seqs)
+        if bench_name == "Metz":
+            metz_proteins = Path("data/raw/metz_proteins.csv")
+            if metz_proteins.exists():
+                mp = pd.read_csv(metz_proteins)
+                if {"uniprot_id", "sequence"} <= set(mp.columns):
+                    for _, r in mp.drop_duplicates("uniprot_id").iterrows():
+                        if r["uniprot_id"] not in seqs:
+                            seqs[r["uniprot_id"]] = r["sequence"]
         if added > 0:
             logger.info("%s: added %d benchmark sequences", bench_name, added)
 
@@ -460,11 +644,13 @@ def main():
                 if len(sub) < 10:
                     row_result[f"{model_name}_auroc"] = None
                     row_result[f"{model_name}_ci"] = None
+                    row_result[f"{model_name}_rmse"] = None
                     continue
                 p = sub[pred_col].values
                 t = sub["pki"].values
                 row_result[f"{model_name}_auroc"] = auroc_safe(t, p)
                 row_result[f"{model_name}_ci"] = ci_fn(t, p)
+                row_result[f"{model_name}_rmse"] = float(np.sqrt(np.mean((t - p) ** 2)))
 
             v2a = row_result.get("V2_auroc", None)
             dda = row_result.get("DeepDTA_auroc", None)
@@ -488,9 +674,54 @@ def main():
 
         all_results[bench_name] = bench_results
 
+        rows_df = pd.DataFrame(bench_results)
+        per_protein_df = pd.concat(
+            [
+                build_per_protein_quartile_metrics(subset, "v2_pred", "V2"),
+                build_per_protein_quartile_metrics(subset, "deepdta_pred", "DeepDTA"),
+                build_per_protein_quartile_metrics(subset, "esm_dta_pred", "ESM-DTA"),
+                build_per_protein_quartile_metrics(subset, "conplex_pred", "ConPlex"),
+            ],
+            ignore_index=True,
+        )
+        Path("results").mkdir(parents=True, exist_ok=True)
+        csv_path = Path("results") / f"{bench_name.lower()}_{args.v2_kind}_{args.out_prefix}.csv"
+        png_path = Path("results") / f"{bench_name.lower()}_{args.v2_kind}_{args.out_prefix}.png"
+        per_protein_csv = Path("results") / f"{bench_name.lower()}_{args.v2_kind}_{args.out_prefix}_per_protein.csv"
+        ci_dist_png = Path("results") / f"{bench_name.lower()}_{args.v2_kind}_{args.out_prefix}_ci_distribution.png"
+        rmse_dist_png = Path("results") / f"{bench_name.lower()}_{args.v2_kind}_{args.out_prefix}_rmse_distribution.png"
+        rows_df.to_csv(csv_path, index=False)
+        per_protein_df.to_csv(per_protein_csv, index=False)
+        draw_quartile_metric_plot(
+            bench_name,
+            rows_df,
+            png_path,
+            "V2-LatentAttn" if args.v2_kind == "v2_latent_attn" else "V2",
+        )
+        draw_per_protein_distribution_plot(
+            bench_name,
+            per_protein_df,
+            "ci",
+            ci_dist_png,
+            "V2-LatentAttn" if args.v2_kind == "v2_latent_attn" else "V2",
+        )
+        draw_per_protein_distribution_plot(
+            bench_name,
+            per_protein_df,
+            "rmse",
+            rmse_dist_png,
+            "V2-LatentAttn" if args.v2_kind == "v2_latent_attn" else "V2",
+        )
+        logger.info("Saved quartile CSV to %s", csv_path)
+        logger.info("Saved quartile plot to %s", png_path)
+        logger.info("Saved per-protein quartile CSV to %s", per_protein_csv)
+        logger.info("Saved per-protein CI distribution to %s", ci_dist_png)
+        logger.info("Saved per-protein RMSE distribution to %s", rmse_dist_png)
+
     Path("results").mkdir(parents=True, exist_ok=True)
-    json.dump(all_results, open("results/anchor_quartile_vs_baselines.json", "w"), indent=2, default=str)
-    print("\nSaved to results/anchor_quartile_vs_baselines.json")
+    json_path = Path("results") / f"{args.out_prefix}.json"
+    json.dump(all_results, open(json_path, "w"), indent=2, default=str)
+    print(f"\nSaved to {json_path}")
 
 if __name__ == "__main__":
     main()

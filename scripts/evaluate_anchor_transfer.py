@@ -105,6 +105,43 @@ def load_model(model_path, esm2_dim, model_version, device):
     return model
 
 
+def sanitize_esm2_embeddings(embeddings: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    clean = {}
+    dropped = 0
+    for protein_id, tensor in embeddings.items():
+        if torch.isfinite(tensor).all():
+            clean[protein_id] = tensor.float()
+        else:
+            dropped += 1
+    if dropped:
+        logger.warning("Dropped %d proteins with non-finite ESM-2 embeddings", dropped)
+    return clean
+
+
+def normalize_benchmark_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    rename_map = {}
+    if "protein_name" in frame.columns and "uniprot_id" not in frame.columns:
+        rename_map["protein_name"] = "uniprot_id"
+    if "drug_smiles" in frame.columns and "ligand_smiles" not in frame.columns:
+        rename_map["drug_smiles"] = "ligand_smiles"
+    if "pKd" in frame.columns and "pki" not in frame.columns:
+        rename_map["pKd"] = "pki"
+    if "target_uniprot_id" in frame.columns and "uniprot_id" not in frame.columns:
+        rename_map["target_uniprot_id"] = "uniprot_id"
+    if "Target_ID" in frame.columns and "uniprot_id" not in frame.columns:
+        rename_map["Target_ID"] = "uniprot_id"
+    if rename_map:
+        frame = frame.rename(columns=rename_map)
+
+    required = {"uniprot_id", "ligand_smiles", "pki"}
+    missing = sorted(required - set(frame.columns))
+    if missing:
+        raise ValueError(
+            f"Benchmark CSV is missing required columns after normalization: {', '.join(missing)}"
+        )
+    return frame
+
+
 def main():
     parser = argparse.ArgumentParser(description="Evaluate Anchor Transfer DTA")
     parser.add_argument("--model", required=True, help="Path to best_model.pt")
@@ -118,6 +155,7 @@ def main():
     parser.add_argument("--output-dir", default="results/anchor_transfer")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--binder-threshold", type=float, default=7.0)
+    parser.add_argument("--batch-size", type=int, default=2048)
     args = parser.parse_args()
 
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
@@ -126,9 +164,13 @@ def main():
 
     # Load ESM-2 embeddings
     logger.info("Loading ESM-2 embeddings...")
-    esm2_dict = torch.load(args.esm2, map_location="cpu", weights_only=False)
+    esm2_dict = sanitize_esm2_embeddings(
+        torch.load(args.esm2, map_location="cpu", weights_only=False)
+    )
     if args.esm2_benchmark:
-        bench_emb = torch.load(args.esm2_benchmark, map_location="cpu", weights_only=False)
+        bench_emb = sanitize_esm2_embeddings(
+            torch.load(args.esm2_benchmark, map_location="cpu", weights_only=False)
+        )
         esm2_dict.update(bench_emb)
         logger.info("Added %d benchmark ESM-2 embeddings", len(bench_emb))
     esm2_dim = next(iter(esm2_dict.values())).shape[0]
@@ -145,16 +187,23 @@ def main():
         if uid in esm2_dict and uid not in drug_to_binders[smi]:
             drug_to_binders[smi].append(uid)
     training_proteins = set(train_df["uniprot_id"]) & set(esm2_dict.keys())
+    training_protein_ids = sorted(training_proteins)
+    training_emb_matrix = None
+    if training_protein_ids:
+        training_emb_matrix = F.normalize(
+            torch.stack([esm2_dict[pid] for pid in training_protein_ids]).to(device),
+            dim=1,
+        )
     logger.info("Training: %d drugs, %d proteins with ESM-2",
                 len(drug_to_binders), len(training_proteins))
 
     # Load benchmark
-    bench_df = pd.read_csv(args.benchmark)
+    bench_df = normalize_benchmark_frame(pd.read_csv(args.benchmark))
     logger.info("Benchmark: %d pairs, %d proteins",
                 len(bench_df), bench_df["uniprot_id"].nunique())
 
-    # Per-protein evaluation
-    protein_results = []
+    # Resolve anchors first so inference can run in large GPU batches.
+    eval_records = []
     anchor_stats = {"drug_match": 0, "similarity_fallback": 0, "no_anchor": 0}
 
     for uid, group in bench_df.groupby("uniprot_id"):
@@ -163,9 +212,9 @@ def main():
         if uid not in esm2_dict:
             continue
 
-        query_emb = esm2_dict[uid]
         smiles_list = group["ligand_smiles"].tolist()
         true_pkis_all = group["pki"].values
+        similarity_fallback = None
 
         valid_indices = []
         for i, smi in enumerate(smiles_list):
@@ -173,33 +222,79 @@ def main():
             if anchors:
                 valid_indices.append((i, smi, anchors[0], "drug"))
             else:
-                fallback = find_anchor_by_similarity(uid, training_proteins, esm2_dict)
-                if fallback:
-                    valid_indices.append((i, smi, fallback, "similarity"))
+                if similarity_fallback is None and training_emb_matrix is not None:
+                    query_vec = F.normalize(esm2_dict[uid].unsqueeze(0).to(device), dim=1)
+                    sims = torch.matmul(training_emb_matrix, query_vec.squeeze(0))
+                    if uid in training_proteins:
+                        sims[training_protein_ids.index(uid)] = -1
+                    similarity_fallback = training_protein_ids[int(torch.argmax(sims).item())]
+                if similarity_fallback:
+                    valid_indices.append((i, smi, similarity_fallback, "similarity"))
 
         if not valid_indices:
             anchor_stats["no_anchor"] += 1
             continue
 
-        for _, _, _, method in valid_indices:
+        for i, smi, anchor_id, method in valid_indices:
             anchor_stats["drug_match" if method == "drug" else "similarity_fallback"] += 1
+            eval_records.append({
+                "uniprot_id": uid,
+                "protein_type": ptype,
+                "ligand_smiles": smi,
+                "anchor_id": anchor_id,
+                "true_pki": float(true_pkis_all[i]),
+            })
 
-        true_pkis = true_pkis_all[[i for i, _, _, _ in valid_indices]]
-        all_preds, all_probs = [], []
+    if not eval_records:
+        raise RuntimeError("No evaluable benchmark pairs found after anchor selection")
 
-        for i, smi, anchor_id, _ in valid_indices:
-            anchor_emb = esm2_dict[anchor_id].unsqueeze(0).to(device)
-            query_emb_t = query_emb.unsqueeze(0).to(device)
-            smi_enc = torch.tensor([encode_smiles(smi)], dtype=torch.long, device=device)
+    logger.info(
+        "Running batched inference on %d anchored pairs (batch_size=%d)",
+        len(eval_records), args.batch_size
+    )
 
-            with torch.no_grad():
-                out = model(anchor_emb, query_emb_t, smi_enc)
+    preds = np.empty(len(eval_records), dtype=np.float32)
+    probs = np.empty(len(eval_records), dtype=np.float32)
 
-            all_preds.append(out["pki_pred"].item())
-            all_probs.append(out["binding_prob"].item())
+    with torch.inference_mode():
+        for start in range(0, len(eval_records), args.batch_size):
+            end = min(start + args.batch_size, len(eval_records))
+            batch = eval_records[start:end]
 
-        preds = np.array(all_preds)
-        probs = np.array(all_probs)
+            anchor_emb = torch.stack([
+                esm2_dict[record["anchor_id"]] for record in batch
+            ]).to(device, non_blocking=True)
+            query_emb = torch.stack([
+                esm2_dict[record["uniprot_id"]] for record in batch
+            ]).to(device, non_blocking=True)
+            smi_enc = torch.tensor(
+                [encode_smiles(record["ligand_smiles"]) for record in batch],
+                dtype=torch.long,
+                device=device,
+            )
+
+            out = model(anchor_emb, query_emb, smi_enc)
+            preds[start:end] = out["pki_pred"].detach().float().cpu().numpy().reshape(-1)
+            probs[start:end] = out["binding_prob"].detach().float().cpu().numpy().reshape(-1)
+
+            if start == 0 or end == len(eval_records) or ((start // args.batch_size) + 1) % 10 == 0:
+                logger.info("Inference progress: %d/%d pairs", end, len(eval_records))
+
+    by_protein = defaultdict(list)
+    for record, pred, prob in zip(eval_records, preds, probs):
+        by_protein[record["uniprot_id"]].append({
+            "true_pki": record["true_pki"],
+            "pred": float(pred),
+            "prob": float(prob),
+            "protein_type": record["protein_type"],
+        })
+
+    protein_results = []
+    for idx, (uid, rows) in enumerate(by_protein.items(), start=1):
+        ptype = rows[0]["protein_type"]
+        true_pkis = np.array([row["true_pki"] for row in rows], dtype=np.float32)
+        preds = np.array([row["pred"] for row in rows], dtype=np.float32)
+        probs = np.array([row["prob"] for row in rows], dtype=np.float32)
 
         ci = concordance_index(true_pkis, preds)
         rmse = float(np.sqrt(np.mean((true_pkis - preds) ** 2)))
@@ -213,15 +308,14 @@ def main():
             auroc = auprc = float("nan")
 
         protein_results.append({
-            "uniprot_id": uid, "protein_type": ptype, "n_drugs": len(valid_indices),
+            "uniprot_id": uid, "protein_type": ptype, "n_drugs": len(rows),
             "ci": ci, "rmse": rmse, "pearson_r": pearson_r,
             "auroc": auroc, "auprc": auprc,
         })
 
-        if len(protein_results) % 20 == 0:
+        if idx % 20 == 0:
             logger.info("[%d] %s (%s, %d drugs): CI=%.3f RMSE=%.3f AUROC=%.3f",
-                        len(protein_results), uid, ptype,
-                        len(valid_indices), ci, rmse, auroc)
+                        idx, uid, ptype, len(rows), ci, rmse, auroc)
 
     # Aggregate
     res_df = pd.DataFrame(protein_results)

@@ -33,9 +33,17 @@ logger = logging.getLogger(__name__)
 
 
 class AnchorTransferDataset(Dataset):
-    """On-the-fly dataset for anchor transfer training."""
+    """Dataset for anchor transfer training.
 
-    def __init__(self, interactions_df, esm2_embeddings, pos_threshold=7.0, neg_threshold=5.0):
+    Anchor selection matches the paper protocol: for each drug, the anchor is
+    the strongest known binder (highest pKi).  If the strongest binder is the
+    query itself, the second-strongest is used.  Samples with no valid anchor
+    are dropped entirely — no self-anchoring, no random selection.
+    """
+
+    def __init__(self, interactions_df, esm2_embeddings,
+                 drug_to_anchor, drug_to_second,
+                 pos_threshold=7.0, neg_threshold=5.0):
         self.esm2 = esm2_embeddings
 
         valid_proteins = set(esm2_embeddings.keys())
@@ -43,13 +51,7 @@ class AnchorTransferDataset(Dataset):
         logger.info("Filtered to %d interactions with ESM-2 embeddings (from %d)",
                      len(df), len(interactions_df))
 
-        # Build drug → known binders (shared, not per-sample)
-        self.drug_to_binders = defaultdict(list)
-        for uid, smi in zip(df["uniprot_id"], df["ligand_smiles"]):
-            if uid not in self.drug_to_binders[smi]:
-                self.drug_to_binders[smi].append(uid)
-
-        # Build compact sample lists
+        # Build compact sample lists — only keep samples with a valid anchor
         queries = df["uniprot_id"].values
         smiles_arr = df["ligand_smiles"].values
         pkis = df["pki"].values
@@ -57,9 +59,23 @@ class AnchorTransferDataset(Dataset):
         self.sample_smiles = []
         self.sample_pkis = []
         self.sample_labels = []
+        self.sample_anchors = []
+        n_skipped_no_anchor = 0
+        n_skipped_self = 0
         for i in range(len(df)):
             smi = smiles_arr[i]
-            if len(self.drug_to_binders[smi]) < 1:
+            if smi not in drug_to_anchor:
+                n_skipped_no_anchor += 1
+                continue
+            anchor = drug_to_anchor[smi]
+            query = queries[i]
+            if anchor == query:
+                anchor = drug_to_second.get(smi)
+                if not anchor or anchor not in valid_proteins:
+                    n_skipped_self += 1
+                    continue
+            if anchor not in valid_proteins:
+                n_skipped_no_anchor += 1
                 continue
             pki = float(pkis[i])
             if pki >= pos_threshold:
@@ -68,14 +84,17 @@ class AnchorTransferDataset(Dataset):
                 label = 0
             else:
                 label = -1
-            self.sample_queries.append(queries[i])
+            self.sample_queries.append(query)
             self.sample_smiles.append(smi)
             self.sample_pkis.append(pki)
             self.sample_labels.append(label)
+            self.sample_anchors.append(anchor)
 
         n = len(self.sample_queries)
         logger.info("Dataset: %d samples, %d unique drugs, %d unique proteins",
-                     n, len(self.drug_to_binders), len(set(self.sample_queries)))
+                     n, len(set(self.sample_smiles)), len(set(self.sample_queries)))
+        logger.info("Skipped: %d no-anchor, %d self-anchor-only",
+                     n_skipped_no_anchor, n_skipped_self)
 
         n_pos = sum(1 for l in self.sample_labels if l == 1)
         n_neg = sum(1 for l in self.sample_labels if l == 0)
@@ -90,24 +109,12 @@ class AnchorTransferDataset(Dataset):
         ])
         self._sample_smi_indices = [self._smi_to_idx[s] for s in self.sample_smiles]
 
-        self.anchors = [None] * n
-        self.resample_anchors()
-
-    def resample_anchors(self):
-        for i in range(len(self.sample_queries)):
-            query = self.sample_queries[i]
-            binders = self.drug_to_binders[self.sample_smiles[i]]
-            candidates = [b for b in binders if b != query]
-            if not candidates:
-                candidates = binders
-            self.anchors[i] = random.choice(candidates)
-
     def __len__(self):
         return len(self.sample_queries)
 
     def __getitem__(self, idx):
         return {
-            "anchor_esm2": self.esm2[self.anchors[idx]],
+            "anchor_esm2": self.esm2[self.sample_anchors[idx]],
             "query_esm2": self.esm2[self.sample_queries[idx]],
             "drug_indices": self._encoded_smiles[self._sample_smi_indices[idx]],
             "pki": self.sample_pkis[idx],
@@ -238,6 +245,19 @@ def concordance_index(y_true, y_pred):
     return float(concordant / total) if total > 0 else 0.5
 
 
+def sanitize_esm2_embeddings(embeddings: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    clean = {}
+    dropped = 0
+    for protein_id, tensor in embeddings.items():
+        if torch.isfinite(tensor).all():
+            clean[protein_id] = tensor.float()
+        else:
+            dropped += 1
+    if dropped:
+        logger.warning("Dropped %d proteins with non-finite ESM-2 embeddings", dropped)
+    return clean
+
+
 def main():
     parser = argparse.ArgumentParser(description="Train Anchor Transfer DTA v2")
     parser.add_argument("--graph", required=True, help="ESM-2 embeddings .pt")
@@ -246,15 +266,17 @@ def main():
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=256)
-    parser.add_argument("--lr", type=float, default=5e-4)
+    parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=1e-4)
     parser.add_argument("--alpha", type=float, default=1.0)
     parser.add_argument("--pos-threshold", type=float, default=7.0)
     parser.add_argument("--neg-threshold", type=float, default=5.0)
     parser.add_argument("--val-split", type=float, default=0.1)
+    parser.add_argument("--test-split", type=float, default=0.1)
     parser.add_argument("--patience", type=int, default=20)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--proj-dim", type=int, default=256)
+    # Legacy no-op kept so older reproduce commands still parse cleanly.
     parser.add_argument("--n-heads", type=int, default=4)
     args = parser.parse_args()
 
@@ -273,41 +295,63 @@ def main():
         esm2_dict = data
     else:
         esm2_dict = {pid: data.x_esm2[i] for i, pid in enumerate(data.protein_ids)}
+    esm2_dict = sanitize_esm2_embeddings(esm2_dict)
     esm2_dim = next(iter(esm2_dict.values())).shape[0]
     logger.info("ESM-2: %d proteins (dim=%d)", len(esm2_dict), esm2_dim)
 
     logger.info("Loading interactions...")
     df = pd.read_csv(args.interactions)
+    # Filter out malformed protein IDs (comma-containing entries)
+    df = df[~df["uniprot_id"].str.contains(",", na=False)]
     logger.info("Loaded %d interactions", len(df))
 
-    # Split by protein
+    # 80/10/10 protein-level split (matches paper protocol)
     all_proteins = sorted(set(df["uniprot_id"]) & set(esm2_dict.keys()))
     random.shuffle(all_proteins)
+    n_test = max(1, int(len(all_proteins) * args.test_split))
     n_val = max(1, int(len(all_proteins) * args.val_split))
-    val_proteins = set(all_proteins[:n_val])
-    train_proteins = set(all_proteins[n_val:])
-    logger.info("Split: %d train proteins, %d val proteins", len(train_proteins), len(val_proteins))
+    test_proteins = set(all_proteins[:n_test])
+    val_proteins = set(all_proteins[n_test:n_test + n_val])
+    train_proteins = set(all_proteins[n_test + n_val:])
+    logger.info("Split: %d train, %d val, %d test proteins",
+                len(train_proteins), len(val_proteins), len(test_proteins))
 
     train_df = df[df["uniprot_id"].isin(train_proteins)]
     val_df = df[df["uniprot_id"].isin(val_proteins)]
 
+    # Build drug → strongest binder anchor from TRAINING proteins only
+    train_with_emb = train_df[train_df["uniprot_id"].isin(esm2_dict)].copy()
+    idx = train_with_emb.groupby("ligand_smiles")["pki"].idxmax()
+    drug_to_anchor = dict(zip(
+        train_with_emb.loc[idx, "ligand_smiles"],
+        train_with_emb.loc[idx, "uniprot_id"],
+    ))
+    drug_to_second = {}
+    for smi, grp in train_with_emb.groupby("ligand_smiles"):
+        v = grp.sort_values("pki", ascending=False)
+        if len(v) > 1:
+            drug_to_second[smi] = v.iloc[1]["uniprot_id"]
+    logger.info("Anchor pool: %d drugs with strongest binder, %d with second",
+                len(drug_to_anchor), len(drug_to_second))
+
     train_dataset = AnchorTransferDataset(
-        train_df, esm2_dict,
+        train_df, esm2_dict, drug_to_anchor, drug_to_second,
         pos_threshold=args.pos_threshold, neg_threshold=args.neg_threshold,
     )
     val_dataset = AnchorTransferDataset(
-        val_df, esm2_dict,
+        val_df, esm2_dict, drug_to_anchor, drug_to_second,
         pos_threshold=args.pos_threshold, neg_threshold=args.neg_threshold,
     )
 
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True,
-                              collate_fn=collate_fn, num_workers=4, pin_memory=True)
+                              collate_fn=collate_fn, num_workers=0, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False,
-                            collate_fn=collate_fn, num_workers=4, pin_memory=True)
+                            collate_fn=collate_fn, num_workers=0, pin_memory=True)
 
     # Model
     model = AnchorTransferDTAv2(
-        esm2_dim=esm2_dim, proj_dim=args.proj_dim, n_heads=args.n_heads,
+        esm2_dim=esm2_dim,
+        proj_dim=args.proj_dim,
     ).to(device)
     n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info("AnchorTransferDTAv2: %d trainable parameters", n_params)
@@ -320,7 +364,6 @@ def main():
 
     for epoch in range(1, args.epochs + 1):
         t0 = time.time()
-        train_dataset.resample_anchors()
 
         train_metrics = train_epoch(model, train_loader, optimizer, device, alpha=args.alpha)
         val_metrics = validate(model, val_loader, device, alpha=args.alpha)

@@ -40,41 +40,28 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 class AnchorTransferDataset(Dataset):
-    """Dataset that yields (anchor_esm2, query_esm2, drug_graph, pki, binding_label, has_label).
+    """Dataset for anchor transfer training.
 
-    For each (query_protein, drug, pki) sample:
-    - anchor = random known binder of the same drug (different from query if possible)
-    - binding_label: 1 if pki >= pos_threshold, 0 if pki <= neg_threshold, -1 otherwise
-    - has_label: True if binding_label != -1
-
-    Drug graphs are built on-the-fly to avoid OOM from caching 164K+ PyG objects.
-    Call resample_anchors() at the start of each epoch.
+    Anchor = strongest known binder per drug (highest pKi).  If the strongest
+    binder is the query itself, the second-strongest is used.  Samples with no
+    valid anchor are dropped entirely.
     """
 
     def __init__(
         self,
         interactions_df: pd.DataFrame,
         esm2_embeddings: dict[str, torch.Tensor],
+        drug_to_anchor: dict[str, str],
+        drug_to_second: dict[str, str],
         pos_threshold: float = 7.0,
         neg_threshold: float = 5.0,
     ):
-        self.pos_threshold = pos_threshold
-        self.neg_threshold = neg_threshold
         self.esm2 = esm2_embeddings
-
-        # Filter to proteins with ESM-2 embeddings
         valid_proteins = set(esm2_embeddings.keys())
         df = interactions_df[interactions_df["uniprot_id"].isin(valid_proteins)].copy()
         logger.info("Filtered to %d interactions with ESM-2 embeddings (from %d)",
                      len(df), len(interactions_df))
 
-        # Build drug → known binders mapping (shared, not per-sample)
-        self.drug_to_binders = defaultdict(list)
-        for uid, smi in zip(df["uniprot_id"], df["ligand_smiles"]):
-            if uid not in self.drug_to_binders[smi]:
-                self.drug_to_binders[smi].append(uid)
-
-        # Build compact sample list (no binder lists — reference shared dict)
         queries = df["uniprot_id"].values
         smiles_arr = df["ligand_smiles"].values
         pkis = df["pki"].values
@@ -82,9 +69,23 @@ class AnchorTransferDataset(Dataset):
         self.sample_smiles = []
         self.sample_pkis = []
         self.sample_labels = []
+        self.sample_anchors = []
+        n_skipped_no_anchor = 0
+        n_skipped_self = 0
         for i in range(len(df)):
             smi = smiles_arr[i]
-            if len(self.drug_to_binders[smi]) < 1:
+            if smi not in drug_to_anchor:
+                n_skipped_no_anchor += 1
+                continue
+            anchor = drug_to_anchor[smi]
+            query = queries[i]
+            if anchor == query:
+                anchor = drug_to_second.get(smi)
+                if not anchor or anchor not in valid_proteins:
+                    n_skipped_self += 1
+                    continue
+            if anchor not in valid_proteins:
+                n_skipped_no_anchor += 1
                 continue
             pki = float(pkis[i])
             if pki >= pos_threshold:
@@ -93,24 +94,25 @@ class AnchorTransferDataset(Dataset):
                 label = 0
             else:
                 label = -1
-            self.sample_queries.append(queries[i])
+            self.sample_queries.append(query)
             self.sample_smiles.append(smi)
             self.sample_pkis.append(pki)
             self.sample_labels.append(label)
+            self.sample_anchors.append(anchor)
 
         n_samples = len(self.sample_queries)
         logger.info("Dataset: %d samples, %d unique drugs, %d unique proteins",
-                     n_samples, len(self.drug_to_binders),
+                     n_samples, len(set(self.sample_smiles)),
                      len(set(self.sample_queries)))
+        logger.info("Skipped: %d no-anchor, %d self-anchor-only",
+                     n_skipped_no_anchor, n_skipped_self)
 
-        # Count label distribution
         n_pos = sum(1 for l in self.sample_labels if l == 1)
         n_neg = sum(1 for l in self.sample_labels if l == 0)
         n_mid = sum(1 for l in self.sample_labels if l == -1)
         logger.info("Labels: %d pos (pKi>=%.1f), %d neg (pKi<=%.1f), %d middle",
                      n_pos, pos_threshold, n_neg, neg_threshold, n_mid)
 
-        # Pre-encode all SMILES as tensor (instant lookup in __getitem__)
         unique_smiles = list(set(self.sample_smiles))
         self._smi_to_idx = {s: i for i, s in enumerate(unique_smiles)}
         self._encoded_smiles = torch.stack([
@@ -118,28 +120,12 @@ class AnchorTransferDataset(Dataset):
         ])
         self._sample_smi_indices = [self._smi_to_idx[s] for s in self.sample_smiles]
 
-        # Pre-sample anchors
-        self.anchors = [None] * n_samples
-        self.resample_anchors()
-
-    def resample_anchors(self):
-        """Re-sample anchors for each sample (call at epoch start)."""
-        for i in range(len(self.sample_queries)):
-            query = self.sample_queries[i]
-            binders = self.drug_to_binders[self.sample_smiles[i]]
-            candidates = [b for b in binders if b != query]
-            if not candidates:
-                candidates = binders
-            self.anchors[i] = random.choice(candidates)
-
     def __len__(self):
         return len(self.sample_queries)
 
     def __getitem__(self, idx):
-        anchor_id = self.anchors[idx]
-
         return {
-            "anchor_esm2": self.esm2[anchor_id],
+            "anchor_esm2": self.esm2[self.sample_anchors[idx]],
             "query_esm2": self.esm2[self.sample_queries[idx]],
             "drug_indices": self._encoded_smiles[self._sample_smi_indices[idx]],
             "pki": self.sample_pkis[idx],
@@ -354,6 +340,19 @@ def load_esm2_from_graph(graph_path: str) -> dict[str, torch.Tensor]:
     return esm2_dict
 
 
+def sanitize_esm2_embeddings(embeddings: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    clean = {}
+    dropped = 0
+    for protein_id, tensor in embeddings.items():
+        if torch.isfinite(tensor).all():
+            clean[protein_id] = tensor.float()
+        else:
+            dropped += 1
+    if dropped:
+        logger.warning("Dropped %d proteins with non-finite ESM-2 embeddings", dropped)
+    return clean
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -374,6 +373,7 @@ def main():
     parser.add_argument("--pos-threshold", type=float, default=7.0)
     parser.add_argument("--neg-threshold", type=float, default=5.0)
     parser.add_argument("--val-split", type=float, default=0.1)
+    parser.add_argument("--test-split", type=float, default=0.1)
     parser.add_argument("--patience", type=int, default=20)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--esm2-dim", type=int, default=480)
@@ -389,41 +389,60 @@ def main():
 
     # Load data
     logger.info("Loading ESM-2 embeddings from graph...")
-    esm2_dict = load_esm2_from_graph(args.graph)
+    esm2_dict = sanitize_esm2_embeddings(load_esm2_from_graph(args.graph))
 
     logger.info("Loading interactions...")
     df = pd.read_csv(args.interactions)
+    df = df[~df["uniprot_id"].str.contains(",", na=False)]
     logger.info("Loaded %d interactions", len(df))
 
-    # Split by protein (protein-level split for generalization)
+    # 80/10/10 protein-level split (matches paper protocol)
     all_proteins = sorted(set(df["uniprot_id"]) & set(esm2_dict.keys()))
     random.shuffle(all_proteins)
+    n_test = max(1, int(len(all_proteins) * args.test_split))
     n_val = max(1, int(len(all_proteins) * args.val_split))
-    val_proteins = set(all_proteins[:n_val])
-    train_proteins = set(all_proteins[n_val:])
-    logger.info("Split: %d train proteins, %d val proteins", len(train_proteins), len(val_proteins))
+    test_proteins = set(all_proteins[:n_test])
+    val_proteins = set(all_proteins[n_test:n_test + n_val])
+    train_proteins = set(all_proteins[n_test + n_val:])
+    logger.info("Split: %d train, %d val, %d test proteins",
+                len(train_proteins), len(val_proteins), len(test_proteins))
 
     train_df = df[df["uniprot_id"].isin(train_proteins)]
     val_df = df[df["uniprot_id"].isin(val_proteins)]
 
+    # Build drug → strongest binder anchor from TRAINING proteins only
+    train_with_emb = train_df[train_df["uniprot_id"].isin(esm2_dict)].copy()
+    idx = train_with_emb.groupby("ligand_smiles")["pki"].idxmax()
+    drug_to_anchor = dict(zip(
+        train_with_emb.loc[idx, "ligand_smiles"],
+        train_with_emb.loc[idx, "uniprot_id"],
+    ))
+    drug_to_second = {}
+    for smi, grp in train_with_emb.groupby("ligand_smiles"):
+        v = grp.sort_values("pki", ascending=False)
+        if len(v) > 1:
+            drug_to_second[smi] = v.iloc[1]["uniprot_id"]
+    logger.info("Anchor pool: %d drugs with strongest binder, %d with second",
+                len(drug_to_anchor), len(drug_to_second))
+
     train_dataset = AnchorTransferDataset(
-        train_df, esm2_dict,
+        train_df, esm2_dict, drug_to_anchor, drug_to_second,
         pos_threshold=args.pos_threshold,
         neg_threshold=args.neg_threshold,
     )
     val_dataset = AnchorTransferDataset(
-        val_df, esm2_dict,
+        val_df, esm2_dict, drug_to_anchor, drug_to_second,
         pos_threshold=args.pos_threshold,
         neg_threshold=args.neg_threshold,
     )
 
     train_loader = DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True,
-        collate_fn=collate_fn, num_workers=4, pin_memory=True,
+        collate_fn=collate_fn, num_workers=0, pin_memory=True,
     )
     val_loader = DataLoader(
         val_dataset, batch_size=args.batch_size, shuffle=False,
-        collate_fn=collate_fn, num_workers=4, pin_memory=True,
+        collate_fn=collate_fn, num_workers=0, pin_memory=True,
     )
 
     # Model
@@ -441,9 +460,6 @@ def main():
 
     for epoch in range(1, args.epochs + 1):
         t0 = time.time()
-
-        # Re-sample anchors each epoch
-        train_dataset.resample_anchors()
 
         train_metrics = train_epoch(model, train_loader, optimizer, device, alpha=args.alpha)
         val_metrics = validate(model, val_loader, device, alpha=args.alpha)

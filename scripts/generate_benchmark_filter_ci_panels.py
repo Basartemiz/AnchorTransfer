@@ -1,6 +1,10 @@
 import json
+import math
+import os
 import random
+import argparse
 from pathlib import Path
+from multiprocessing import get_context
 
 import matplotlib
 matplotlib.use("Agg")
@@ -40,6 +44,8 @@ MODELS = ["V2_oracle", "V2_weakest", "V2_random", "DeepDTA", "ConPlex", "ESM-DTA
 QUARTILES = ["Q1", "Q2", "Q3", "Q4"]
 TANI_BINS = ["<0.4", "0.4-0.6", "0.6-0.8", "0.8-0.95", "0.95-1.0"]
 PROTOCOLS = ["filtered", "unfiltered"]
+MIN_ANCHOR_PKI = 7.0
+DEFAULT_CHEM_WORKERS = min(48, max(1, (os.cpu_count() or 1)))
 MODEL_COLORS = {
     "V2_oracle": "#2f5c3a",
     "V2_weakest": "#9c8f3f",
@@ -96,6 +102,46 @@ def full_inchikey(smi):
         return None
 
 
+def smiles_metadata_row(smi):
+    return str(smi), canon_smiles(smi), full_inchikey(smi)
+
+
+def smiles_reference_row(smi):
+    smi = str(smi)
+    return smi, canon_smiles(smi), full_inchikey(smi), fp(smi)
+
+
+def smiles_metadata_map(smiles_values, workers=None):
+    unique_smiles = sorted(set(str(smi) for smi in smiles_values))
+    if not unique_smiles:
+        return {}
+    if workers is None:
+        workers = int(os.environ.get("CHEM_WORKERS", DEFAULT_CHEM_WORKERS))
+    workers = max(1, min(int(workers), len(unique_smiles)))
+    if workers == 1 or len(unique_smiles) < 512:
+        rows = [smiles_metadata_row(smi) for smi in unique_smiles]
+    else:
+        with get_context("fork").Pool(processes=workers) as pool:
+            rows = pool.map(smiles_metadata_row, unique_smiles, chunksize=max(32, len(unique_smiles) // (workers * 8)))
+    return {
+        smi: {"canonical_smiles": canonical_smi, "inchikey": ik}
+        for smi, canonical_smi, ik in rows
+    }
+
+
+def smiles_reference_map(smiles_values, workers=None):
+    unique_smiles = sorted(set(str(smi) for smi in smiles_values))
+    if not unique_smiles:
+        return []
+    if workers is None:
+        workers = int(os.environ.get("CHEM_WORKERS", DEFAULT_CHEM_WORKERS))
+    workers = max(1, min(int(workers), len(unique_smiles)))
+    if workers == 1 or len(unique_smiles) < 512:
+        return [smiles_reference_row(smi) for smi in unique_smiles]
+    with get_context("fork").Pool(processes=workers) as pool:
+        return pool.map(smiles_reference_row, unique_smiles, chunksize=max(32, len(unique_smiles) // (workers * 8)))
+
+
 def fp(smi):
     mol = Chem.MolFromSmiles(str(smi))
     if mol is None:
@@ -124,6 +170,7 @@ def load_embeddings():
         "data/processed/esm2_35m_dtc_proteins_full.pt",
         "data/processed/esm2_35m_davis.pt",
         "data/processed/esm2_35m_benchmark.pt",
+        "data/processed/esm2_35m_glass.pt",
         "data/processed/esm2_35m_metz.pt",
     ]:
         path = Path(rel)
@@ -151,6 +198,13 @@ def build_sequences():
         mdf = pd.read_csv(metz_path)
         for _, row in mdf.drop_duplicates("uniprot_id").iterrows():
             seqs[str(row["uniprot_id"])] = str(row["sequence"])
+    glass_path = Path("data/raw/glass/protein.json")
+    if glass_path.exists():
+        glass_meta = json.load(open(glass_path))
+        for uid, info in glass_meta.items():
+            sequence = info.get("sequence") if isinstance(info, dict) else None
+            if sequence:
+                seqs[str(uid)] = str(sequence)
     return seqs
 
 
@@ -160,10 +214,7 @@ def build_dtc_reference(seqs):
     fps = []
     canonical = set()
     inchikeys = set()
-    for smi in smiles:
-        canonical_smi = canon_smiles(smi)
-        ik = full_inchikey(smi)
-        bitvec = fp(smi)
+    for smi, canonical_smi, ik, bitvec in smiles_reference_map(smiles):
         if canonical_smi is not None:
             canonical.add(canonical_smi)
         if ik is not None:
@@ -196,6 +247,22 @@ def load_benchmarks():
     metz_path = Path("data/raw/metz_benchmark.csv")
     if metz_path.exists():
         out["Metz"] = pd.read_csv(metz_path)
+    glass_data = Path("data/raw/glass/glass2_reg_major.csv")
+    glass_ligands = Path("data/raw/glass/ligands.tsv")
+    if glass_data.exists() and glass_ligands.exists():
+        glass = pd.read_csv(glass_data)
+        ligands = pd.read_csv(glass_ligands, sep="\t")
+        ik_to_smi = dict(zip(ligands["InChIKey"], ligands["SMILES"]))
+        glass = glass.rename(columns={"target_uniprot_id": "uniprot_id"})
+        glass["ligand_smiles"] = glass["compound_inchikey"].map(ik_to_smi)
+        glass = glass.dropna(subset=["ligand_smiles"])
+        if "standard_type" in glass.columns:
+            glass = glass[glass["standard_type"] == "Ki"].copy()
+        glass["pki"] = glass["standard_value"].apply(
+            lambda value: -math.log10(float(value) * 1e-9) if float(value) > 0 else 0.0
+        )
+        glass = glass[glass["pki"] > 0].copy()
+        out["GLASS"] = glass
     return out
 
 
@@ -205,8 +272,9 @@ def apply_protocol_filters(df, protocol, seqs, emb, dtc_ref):
     sdf["ligand_smiles"] = sdf["ligand_smiles"].astype(str)
     sdf = sdf[sdf["uniprot_id"].isin(emb)].copy()
     sdf = sdf[sdf["uniprot_id"].isin(seqs)].copy()
-    sdf["canonical_smiles"] = sdf["ligand_smiles"].map(canon_smiles)
-    sdf["inchikey"] = sdf["ligand_smiles"].map(full_inchikey)
+    chem_meta = smiles_metadata_map(sdf["ligand_smiles"].tolist())
+    sdf["canonical_smiles"] = sdf["ligand_smiles"].map(lambda smi: chem_meta.get(str(smi), {}).get("canonical_smiles"))
+    sdf["inchikey"] = sdf["ligand_smiles"].map(lambda smi: chem_meta.get(str(smi), {}).get("inchikey"))
     if protocol == "filtered":
         sdf = sdf[~sdf["uniprot_id"].isin(dtc_ref["proteins"])].copy()
         seq_overlap = {
@@ -219,16 +287,20 @@ def apply_protocol_filters(df, protocol, seqs, emb, dtc_ref):
     return sdf
 
 
-def build_anchor_maps(df):
-    strongest_idx = df.groupby("ligand_smiles")["pki"].idxmax()
-    strongest_uid = dict(zip(df.loc[strongest_idx, "ligand_smiles"], df.loc[strongest_idx, "uniprot_id"]))
-    strongest_pki = dict(zip(df.loc[strongest_idx, "ligand_smiles"], df.loc[strongest_idx, "pki"]))
+def build_anchor_maps(df, min_anchor_pki=MIN_ANCHOR_PKI):
+    strongest_uid = {}
+    strongest_pki = {}
     second_uid = {}
     weakest_uid = {}
     all_uids = sorted(set(df["uniprot_id"].astype(str)))
     for smi, group in df.groupby("ligand_smiles"):
-        ranked = group.sort_values("pki", ascending=False)
+        ranked = group[group["pki"] >= min_anchor_pki].sort_values("pki", ascending=False)
+        if ranked.empty:
+            continue
         uids = list(ranked["uniprot_id"].astype(str))
+        pkis = list(ranked["pki"].astype(float))
+        strongest_uid[smi] = uids[0]
+        strongest_pki[smi] = pkis[0]
         weakest_uid[smi] = uids[-1]
         if len(uids) > 1:
             second_uid[smi] = uids[1]
@@ -468,6 +540,90 @@ def build_quartile_protein_metrics(pred_df):
     return pd.DataFrame(rows)
 
 
+def save_anchor_artifacts(out_dir, benchmark, protocol, sdf, anchor_df, strongest_uid, second_uid, weakest_uid):
+    eligible = sdf[sdf["pki"] >= MIN_ANCHOR_PKI].copy()
+    eligible_counts = eligible.groupby("ligand_smiles").size().to_dict()
+
+    cutoffs = anchor_df["anchor_pki"].quantile([0.0, 0.25, 0.5, 0.75, 1.0]).reset_index()
+    cutoffs.columns = ["quantile", "anchor_pki"]
+    cutoffs["benchmark"] = benchmark
+    cutoffs["protocol"] = protocol
+    cutoffs.to_csv(out_dir / f"{benchmark.lower()}_{protocol}_anchor_cutoffs.csv", index=False)
+
+    quartile_summary = (
+        anchor_df.groupby("anchor_quartile")
+        .agg(
+            n_interactions=("ligand_smiles", "size"),
+            n_drugs=("ligand_smiles", "nunique"),
+            n_proteins=("uniprot_id", "nunique"),
+            anchor_pki_min=("anchor_pki", "min"),
+            anchor_pki_max=("anchor_pki", "max"),
+            anchor_pki_mean=("anchor_pki", "mean"),
+            anchor_pki_median=("anchor_pki", "median"),
+        )
+        .reset_index()
+    )
+    quartile_summary["benchmark"] = benchmark
+    quartile_summary["protocol"] = protocol
+    quartile_summary.to_csv(out_dir / f"{benchmark.lower()}_{protocol}_anchor_quartile_summary.csv", index=False)
+
+    drug_anchor_df = anchor_df[
+        ["ligand_smiles", "anchor_pki", "anchor_quartile", "max_tanimoto_to_dtc", "tanimoto_bin"]
+    ].drop_duplicates(subset=["ligand_smiles"]).copy()
+    drug_anchor_df["strongest_anchor_uid"] = drug_anchor_df["ligand_smiles"].map(strongest_uid)
+    drug_anchor_df["second_anchor_uid"] = drug_anchor_df["ligand_smiles"].map(second_uid)
+    drug_anchor_df["weakest_anchor_uid"] = drug_anchor_df["ligand_smiles"].map(weakest_uid)
+    drug_anchor_df["n_eligible_anchors"] = drug_anchor_df["ligand_smiles"].map(eligible_counts).fillna(0).astype(int)
+    drug_anchor_df["n_anchorable_queries"] = (
+        drug_anchor_df["ligand_smiles"].map(anchor_df.groupby("ligand_smiles").size()).fillna(0).astype(int)
+    )
+    drug_anchor_df["benchmark"] = benchmark
+    drug_anchor_df["protocol"] = protocol
+    drug_anchor_df = drug_anchor_df[
+        [
+            "benchmark",
+            "protocol",
+            "ligand_smiles",
+            "strongest_anchor_uid",
+            "second_anchor_uid",
+            "weakest_anchor_uid",
+            "anchor_pki",
+            "anchor_quartile",
+            "n_eligible_anchors",
+            "n_anchorable_queries",
+            "max_tanimoto_to_dtc",
+            "tanimoto_bin",
+        ]
+    ].sort_values(["anchor_quartile", "anchor_pki", "ligand_smiles"], ascending=[True, True, True])
+    drug_anchor_df.to_csv(out_dir / f"{benchmark.lower()}_{protocol}_anchor_drugs.csv", index=False)
+
+    interaction_anchor_df = anchor_df[
+        ["uniprot_id", "ligand_smiles", "pki", "anchor_pki", "anchor_quartile", "max_tanimoto_to_dtc", "tanimoto_bin"]
+    ].copy()
+    interaction_anchor_df["strongest_anchor_uid"] = interaction_anchor_df["ligand_smiles"].map(strongest_uid)
+    interaction_anchor_df["second_anchor_uid"] = interaction_anchor_df["ligand_smiles"].map(second_uid)
+    interaction_anchor_df["weakest_anchor_uid"] = interaction_anchor_df["ligand_smiles"].map(weakest_uid)
+    interaction_anchor_df["benchmark"] = benchmark
+    interaction_anchor_df["protocol"] = protocol
+    interaction_anchor_df = interaction_anchor_df[
+        [
+            "benchmark",
+            "protocol",
+            "uniprot_id",
+            "ligand_smiles",
+            "pki",
+            "strongest_anchor_uid",
+            "second_anchor_uid",
+            "weakest_anchor_uid",
+            "anchor_pki",
+            "anchor_quartile",
+            "max_tanimoto_to_dtc",
+            "tanimoto_bin",
+        ]
+    ]
+    interaction_anchor_df.to_csv(out_dir / f"{benchmark.lower()}_{protocol}_anchor_interactions.csv", index=False)
+
+
 def draw_heatmap_grid(benchmark, protocol, tables, out_path):
     vals = []
     for table in tables.values():
@@ -557,6 +713,20 @@ def draw_quartile_ci_distribution(benchmark, protocol, quartile_df, out_path):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--benchmarks",
+        nargs="+",
+        default=None,
+        help="Optional benchmark names to run, e.g. Davis Metz GLASS",
+    )
+    parser.add_argument(
+        "--quartile-only",
+        action="store_true",
+        help="Only write quartile-wise per-protein CI distributions and CSVs.",
+    )
+    args = parser.parse_args()
+
     seed = 42
     random.seed(seed)
     np.random.seed(seed)
@@ -567,6 +737,9 @@ def main():
     emb = load_embeddings()
     dtc_ref = build_dtc_reference(seqs)
     benchmarks = load_benchmarks()
+    if args.benchmarks:
+        wanted = {name.lower() for name in args.benchmarks}
+        benchmarks = {name: df for name, df in benchmarks.items() if name.lower() in wanted}
 
     v2 = load_model(AnchorTransferDTAv2(esm2_dim=480).to(device), "models/v2_dtc/best_model.pt", device)
     deepdta = load_model(DeepDTAModel().to(device), "models/deepdta_dtc/best_model.pt", device)
@@ -604,6 +777,7 @@ def main():
             anchor_df["tanimoto_bin"] = anchor_df["max_tanimoto_to_dtc"].map(tani_bin)
             anchor_df["protocol"] = protocol
             anchor_df["benchmark"] = benchmark
+            save_anchor_artifacts(out_dir, benchmark, protocol, sdf, anchor_df, strongest_uid, second_uid, weakest_uid)
 
             def oracle(uid, smi):
                 anc = strongest_uid.get(smi)
@@ -640,45 +814,44 @@ def main():
                 pred_df["tanimoto_bin"] = anchor_df.loc[pred_df.index, "tanimoto_bin"]
                 pred_df["protocol"] = protocol
                 pred_df["benchmark"] = benchmark
-                pred_df.to_csv(out_dir / f"{benchmark.lower()}_{protocol}_{model_name.lower()}_predictions.csv", index=False)
-
-                heatmap_df = build_heatmap_table(pred_df)
-                heatmap_df["benchmark"] = benchmark
-                heatmap_df["protocol"] = protocol
-                heatmap_df["model"] = model_name
-                model_tables[model_name] = heatmap_df
-
                 prot_df = per_protein_metrics(pred_df)
-                prot_df["benchmark"] = benchmark
-                prot_df["protocol"] = protocol
-                prot_df["model"] = model_name
                 quartile_frames[model_name] = pred_df
+                if not args.quartile_only:
+                    pred_df.to_csv(
+                        out_dir / f"{benchmark.lower()}_{protocol}_{model_name.lower()}_predictions.csv",
+                        index=False,
+                    )
+                    heatmap_df = build_heatmap_table(pred_df)
+                    heatmap_df["benchmark"] = benchmark
+                    heatmap_df["protocol"] = protocol
+                    heatmap_df["model"] = model_name
+                    model_tables[model_name] = heatmap_df
+                    bench_rows.append(
+                        {
+                            "benchmark": benchmark,
+                            "protocol": protocol,
+                            "model": model_name,
+                            "n_interactions": int(len(pred_df)),
+                            "n_proteins": int(pred_df["uniprot_id"].nunique()),
+                            "n_drugs": int(pred_df["ligand_smiles"].nunique()),
+                            "mean_per_protein_ci": float(prot_df["ci"].mean()) if len(prot_df) else float("nan"),
+                        }
+                    )
 
-                bench_rows.append(
-                    {
-                        "benchmark": benchmark,
-                        "protocol": protocol,
-                        "model": model_name,
-                        "n_interactions": int(len(pred_df)),
-                        "n_proteins": int(pred_df["uniprot_id"].nunique()),
-                        "n_drugs": int(pred_df["ligand_smiles"].nunique()),
-                        "mean_per_protein_ci": float(prot_df["ci"].mean()) if len(prot_df) else float("nan"),
-                    }
-                )
-
-            heatmap_all = pd.concat(list(model_tables.values()), ignore_index=True)
-            heatmap_all.to_csv(out_dir / f"{benchmark.lower()}_{protocol}_all_model_heatmap_cells.csv", index=False)
             quartile_ci_df = build_quartile_protein_metrics(predictions)
             quartile_ci_df["benchmark"] = benchmark
             quartile_ci_df["protocol"] = protocol
             quartile_ci_df.to_csv(out_dir / f"{benchmark.lower()}_{protocol}_quartile_per_protein_ci.csv", index=False)
 
-            draw_heatmap_grid(
-                benchmark,
-                protocol,
-                model_tables,
-                out_dir / f"{benchmark.lower()}_{protocol}_heatmap_ci.png",
-            )
+            if not args.quartile_only:
+                heatmap_all = pd.concat(list(model_tables.values()), ignore_index=True)
+                heatmap_all.to_csv(out_dir / f"{benchmark.lower()}_{protocol}_all_model_heatmap_cells.csv", index=False)
+                draw_heatmap_grid(
+                    benchmark,
+                    protocol,
+                    model_tables,
+                    out_dir / f"{benchmark.lower()}_{protocol}_heatmap_ci.png",
+                )
             draw_quartile_ci_distribution(
                 benchmark,
                 protocol,
@@ -686,11 +859,13 @@ def main():
                 out_dir / f"{benchmark.lower()}_{protocol}_quartile_ci_distribution.png",
             )
 
-            summary_rows.extend(bench_rows)
-            pd.DataFrame(bench_rows).to_csv(out_dir / f"{benchmark.lower()}_{protocol}_summary.csv", index=False)
+            if not args.quartile_only:
+                summary_rows.extend(bench_rows)
+                pd.DataFrame(bench_rows).to_csv(out_dir / f"{benchmark.lower()}_{protocol}_summary.csv", index=False)
 
-    pd.DataFrame(summary_rows).to_csv(out_dir / "benchmark_filter_ci_summary.csv", index=False)
-    print(pd.DataFrame(summary_rows).to_string(index=False))
+    if not args.quartile_only:
+        pd.DataFrame(summary_rows).to_csv(out_dir / "benchmark_filter_ci_summary.csv", index=False)
+        print(pd.DataFrame(summary_rows).to_string(index=False))
     print(out_dir)
 
 

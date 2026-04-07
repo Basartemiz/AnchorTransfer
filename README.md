@@ -146,7 +146,13 @@ The numbered scripts install into `.venv-repro/` and use that interpreter for
 subsequent steps. If `DEVICE` is unset, they default to `cuda` only when an
 NVIDIA GPU is available; otherwise they run on `cpu`. `reproduce/00_setup.sh`
 also auto-selects a CUDA-12.4-compatible torch build on hosts where the default
-latest wheel would be too new for the installed driver.
+latest wheel would be too new for the installed driver, and it installs `rdkit`
+for the paper Davis evaluation path. `reproduce/02_train.sh`
+now defaults to 20 epochs per model and keeps the best checkpoint seen in that
+window. `reproduce/03_evaluate.sh` uses the paper Davis protocol by default:
+canonical drug-duplicate exclusion, chirality-aware Tanimoto retrieval from the
+DTC training pool only, self-anchor prevention via `data/raw/dtc_proteins.csv`, and
+macro per-protein CI/AUROC/AUPRC/RMSE summaries.
 
 ## Data Requirements
 
@@ -176,7 +182,16 @@ The derived embedding files such as `data/processed/esm2_35m_dtc.pt` and
 `data/processed/esm2_650m_benchmark.pt` are then produced by
 `reproduce/01_prepare_data.sh`.
 
+Precomputed ESM-2 embeddings and processed interaction data are available at
+https://zenodo.org/records/19442952. Place the downloaded files in
+`data/processed/` before running `reproduce/01_prepare_data.sh` to skip
+embedding regeneration and ensure exact reproducibility.
+
 Benchmark CSVs are expected to contain `uniprot_id`, `ligand_smiles`, `pki`,
 and optionally `protein_type`. `scripts/train_single_model.py` also accepts
 `--dataset-path` and `--sequence-path` overrides for benchmark files that use
 common aliases such as `protein_name`, `drug_smiles`, and `pKd`.
+
+If you need the older generic benchmark evaluator for Metz, GLASS, or BDB-Ki,
+run `RUN_GENERIC_BENCHMARKS=1 bash reproduce/03_evaluate.sh`. The default
+numbered path only evaluates Davis with the paper protocol.

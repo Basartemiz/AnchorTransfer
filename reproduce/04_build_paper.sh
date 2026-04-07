@@ -3,6 +3,12 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+source "$REPO_ROOT/reproduce/common.sh"
+init_repro_context "$REPO_ROOT"
+
+require_command pdflatex
+require_command bibtex
+
 cd "$REPO_ROOT/paper"
 
 echo "=== Compiling main paper ==="

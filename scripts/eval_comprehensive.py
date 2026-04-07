@@ -337,6 +337,16 @@ def main():
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--n-boot", type=int, default=1000)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--train-set", choices=["DTC", "BDB"], default="DTC",
+                        help="Which training-set family to evaluate.")
+    parser.add_argument("--benchmarks", nargs="+", default=["Davis", "Metz"],
+                        help="Benchmarks to run (default: Davis Metz).")
+    parser.add_argument("--v2-kind", choices=["v2", "v2_latent_attn"], default="v2",
+                        help="Anchor model variant to load.")
+    parser.add_argument("--v2-path", default=None,
+                        help="Override checkpoint path for the selected anchor model.")
+    parser.add_argument("--output", default="results/comprehensive_eval.json",
+                        help="Output JSON path.")
     args = parser.parse_args()
 
     random.seed(args.seed); np.random.seed(args.seed); torch.manual_seed(args.seed)
@@ -467,6 +477,7 @@ def main():
     model_configs = {
         "DTC": {
             "v2": "models/v2_dtc/best_model.pt",
+            "v2_latent_attn": "models/v2_latent_attn_dtc/best_model.pt",
             "deepdta": "models/deepdta_dtc/best_model.pt",
             "conplex": "models/conplex_dtc/best_model.pt",
             "esm_dta": "models/esm_dta_dtc/best_model.pt",
@@ -480,20 +491,27 @@ def main():
 
     all_results = {}
 
-    for train_name, train_info in training_sets.items():
-        if train_name not in model_configs: continue
+    selected_training_sets = {args.train_set: training_sets[args.train_set]} if args.train_set in training_sets else {}
+
+    for train_name, train_info in selected_training_sets.items():
+        if train_name not in model_configs:
+            continue
         configs = model_configs[train_name]
 
         # Load V2
-        v2_path = configs.get("v2")
+        v2_path = args.v2_path or configs.get(args.v2_kind)
         if not v2_path or not Path(v2_path).exists():
-            logger.warning("V2 model not found for %s", train_name)
+            logger.warning("%s model not found for %s at %s", args.v2_kind, train_name, v2_path)
             continue
-        from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2
-        v2 = AnchorTransferDTAv2(esm2_dim=480).to(device)
+        if args.v2_kind == "v2_latent_attn":
+            from idr_gat.model.anchor_transfer_latent_attn import AnchorTransferLatentAttn
+            v2 = AnchorTransferLatentAttn(esm2_dim=480).to(device)
+        else:
+            from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2
+            v2 = AnchorTransferDTAv2(esm2_dim=480).to(device)
         ck = torch.load(v2_path, map_location=device, weights_only=False)
         v2.load_state_dict(ck["model_state_dict"]); v2.eval()
-        logger.info("Loaded V2-%s from %s", train_name, v2_path)
+        logger.info("Loaded %s-%s from %s", args.v2_kind, train_name, v2_path)
 
         # Load baselines
         baselines = {}
@@ -516,10 +534,11 @@ def main():
             logger.info("Loaded ESM-DTA-%s", train_name)
 
         # Run on each benchmark
-        for bench_name, eval_df in benchmarks.items():
+        selected_benchmarks = {k: v for k, v in benchmarks.items() if k in set(args.benchmarks)}
+        for bench_name, eval_df in selected_benchmarks.items():
             key = f"{bench_name}__{train_name}"
             logger.info("\n{'='*80}")
-            logger.info("=== %s (trained on %s) ===", bench_name, train_name)
+            logger.info("=== %s (%s trained on %s) ===", bench_name, args.v2_kind, train_name)
 
             results = run_on_benchmark(
                 bench_name, eval_df.copy(), train_info["train_prots"],
@@ -544,7 +563,7 @@ def main():
                         r["ci"], r["ci_ci"][0], r["ci_ci"][1],
                         r["rmse"])
 
-    out = Path("results/comprehensive_eval.json")
+    out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
     json.dump(all_results, open(out, "w"), indent=2)
     logger.info("\nSaved to %s", out)

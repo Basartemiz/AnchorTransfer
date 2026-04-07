@@ -6,7 +6,7 @@ Given (anchor_protein, query_protein, drug) predicts:
 
 Architecture:
   Stage 1: Shared protein projection (ESM-2 → D) + SMILES CNN (→ D)
-  Stage 2: Triple bidirectional cross-attention (anchor↔drug, query↔drug, anchor↔query)
+  Stage 2: Triple bidirectional cross-mlp (anchor↔drug, query↔drug, anchor↔query)
   Stage 3: Fusion [a' ∥ q' ∥ d' ∥ h_ad ∥ h_qd ∥ h_aq] → 6D
   Stage 4: Dual MLP heads → binary + regression
 """

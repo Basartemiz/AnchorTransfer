@@ -207,7 +207,7 @@ class DTADataset(Dataset):
 
 
 class DrugBANDataset(Dataset):
-    def __init__(self, df, seqs):
+    def __init__(self, df, seqs, graph_cache_path="data/processed/drugban_graph_cache.pkl"):
         try:
             from idr_gat.model.drug_encoder import smiles_to_graph
         except ImportError:
@@ -218,11 +218,26 @@ class DrugBANDataset(Dataset):
         self.smiles = df.ligand_smiles.values
         self.pkis = df.pki.values.astype(np.float32)
         self.seqs = seqs
+        # Load precomputed graph cache (.pt format: raw tensors, Data created on-the-fly)
+        pt_path = graph_cache_path.replace('.pkl', '.pt') if graph_cache_path.endswith('.pkl') else graph_cache_path
+        self._raw_cache = None
         self.graph_cache = {}
+        if Path(pt_path).exists():
+            self._raw_cache = torch.load(pt_path, map_location='cpu', weights_only=False)
+            logger.info("Loaded %d raw graph tensors from %s", len(self._raw_cache['x']), pt_path)
+        elif Path(graph_cache_path).exists():
+            import pickle
+            with open(graph_cache_path, "rb") as f:
+                self.graph_cache = pickle.load(f)
+            logger.info("Loaded %d precomputed graphs from %s", len(self.graph_cache), graph_cache_path)
 
     def __len__(self): return len(self.pkis)
 
     def _graph(self, smiles):
+        from torch_geometric.data import Data as _Data
+        if self._raw_cache is not None and smiles in self._raw_cache['x']:
+            return _Data(x=self._raw_cache['x'][smiles].clone(),
+                         edge_index=self._raw_cache['edge_index'][smiles].clone())
         graph = self.graph_cache.get(smiles)
         if graph is None:
             graph = self.smiles_to_graph(smiles)
@@ -351,7 +366,7 @@ def collate_anchor(batch):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", required=True, choices=["conplex", "deepdta", "v2", "drug_anchor", "esm_dta", "v2_attn", "drugban"])
+    parser.add_argument("--model", required=True, choices=["conplex", "deepdta", "v2", "drug_anchor", "esm_dta", "v2_attn", "v2_latent_attn", "drugban"])
     parser.add_argument("--dataset", required=True, choices=["dtc", "bdb", "metz"])
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--epochs", type=int, default=100)
@@ -518,13 +533,16 @@ def main():
             logger.info("Ep %3d [%.0fs] %s Train=%.4f Val=%.4f %s", ep, time.time()-t0, phase, tl_loss/max(nb,1), vl_avg, "*" if imp else f"p={pat}")
             if pat >= args.patience: logger.info("Early stopping"); break
 
-    elif args.model in ("v2", "v2_attn"):
+    elif args.model in ("v2", "v2_attn", "v2_latent_attn"):
         if args.model == "v2":
             from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2
             model_cls = AnchorTransferDTAv2
-        else:
+        elif args.model == "v2_attn":
             from idr_gat.model.anchor_transfer_attn import AnchorTransferAttn
             model_cls = AnchorTransferAttn
+        else:
+            from idr_gat.model.anchor_transfer_latent_attn import AnchorTransferLatentAttn
+            model_cls = AnchorTransferLatentAttn
         dtc_v = train_df[train_df.uniprot_id.isin(esm2)].copy()
         idx = dtc_v.groupby("ligand_smiles")["pki"].idxmax()
         drug_strongest = dict(zip(dtc_v.loc[idx].ligand_smiles, dtc_v.loc[idx].uniprot_id))
@@ -660,6 +678,9 @@ def main():
     elif args.model == "v2_attn":
         from idr_gat.model.anchor_transfer_attn import AnchorTransferAttn
         model = AnchorTransferAttn(esm2_dim=args.esm_dim).to(device)
+    elif args.model == "v2_latent_attn":
+        from idr_gat.model.anchor_transfer_latent_attn import AnchorTransferLatentAttn
+        model = AnchorTransferLatentAttn(esm2_dim=args.esm_dim).to(device)
     elif args.model == "drug_anchor":
         from idr_gat.model.drug_anchor_dta import DrugAnchorDTA
         model = DrugAnchorDTA(esm2_dim=args.esm_dim).to(device)
@@ -702,7 +723,7 @@ def main():
                 d = torch.tensor([encode_smi(smi)], dtype=torch.long, device=device)
                 with torch.no_grad(): out = model(p, d); preds.append(out["score"].item())
 
-        elif args.model in ("v2", "v2_attn"):
+        elif args.model in ("v2", "v2_attn", "v2_latent_attn"):
             from idr_gat.model.anchor_transfer_v2 import encode_smiles as enc_v2
             q = esm2[uid].unsqueeze(0).to(device)
             for smi in smis:
