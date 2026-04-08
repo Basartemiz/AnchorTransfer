@@ -26,7 +26,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
-from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2, encode_smiles
+from anchor_transfer.model.anchor_transfer_v2 import AnchorTransferDTAv2, encode_smiles
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)

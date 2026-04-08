@@ -504,10 +504,10 @@ def main():
             logger.warning("%s model not found for %s at %s", args.v2_kind, train_name, v2_path)
             continue
         if args.v2_kind == "v2_latent_attn":
-            from idr_gat.model.anchor_transfer_latent_attn import AnchorTransferLatentAttn
+            from anchor_transfer.model.anchor_transfer_latent_attn import AnchorTransferLatentAttn
             v2 = AnchorTransferLatentAttn(esm2_dim=480).to(device)
         else:
-            from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2
+            from anchor_transfer.model.anchor_transfer_v2 import AnchorTransferDTAv2
             v2 = AnchorTransferDTAv2(esm2_dim=480).to(device)
         ck = torch.load(v2_path, map_location=device, weights_only=False)
         v2.load_state_dict(ck["model_state_dict"]); v2.eval()
@@ -519,14 +519,14 @@ def main():
             baselines["deepdta"] = load_deepdta(configs["deepdta"], device)
             logger.info("Loaded DeepDTA-%s", train_name)
         if "conplex" in configs and Path(configs["conplex"]).exists():
-            from idr_gat.model.conplex import ConPlex
+            from anchor_transfer.model.conplex import ConPlex
             m = ConPlex(esm2_dim=480).to(device)
             ck = torch.load(configs["conplex"], map_location=device, weights_only=False)
             m.load_state_dict(ck["model_state_dict"]); m.eval()
             baselines["conplex"] = m
             logger.info("Loaded ConPlex-%s", train_name)
         if "esm_dta" in configs and Path(configs["esm_dta"]).exists():
-            from idr_gat.model.esm_dta import EsmDTAModel
+            from anchor_transfer.model.esm_dta import EsmDTAModel
             m = EsmDTAModel(esm2_dim=480).to(device)
             ck = torch.load(configs["esm_dta"], map_location=device, weights_only=False)
             m.load_state_dict(ck["model_state_dict"]); m.eval()

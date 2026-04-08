@@ -129,7 +129,7 @@ def main():
     random.seed(42); np.random.seed(42); torch.manual_seed(42)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2
+    from anchor_transfer.model.anchor_transfer_v2 import AnchorTransferDTAv2
     model = AnchorTransferDTAv2(esm2_dim=480).to(device)
     ck = torch.load("models/v2_dtc/best_model.pt", map_location=device, weights_only=False)
     model.load_state_dict(ck["model_state_dict"]); model.eval()

@@ -493,11 +493,11 @@ def main():
 
     # Load V2
     if args.v2_kind == "v2_latent_attn":
-        from idr_gat.model.anchor_transfer_latent_attn import AnchorTransferLatentAttn
+        from anchor_transfer.model.anchor_transfer_latent_attn import AnchorTransferLatentAttn
         v2 = AnchorTransferLatentAttn(esm2_dim=480).to(device)
         default_v2_path = "models/v2_latent_attn_dtc/best_model.pt"
     else:
-        from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2
+        from anchor_transfer.model.anchor_transfer_v2 import AnchorTransferDTAv2
         v2 = AnchorTransferDTAv2(esm2_dim=480).to(device)
         default_v2_path = "models/v2_dtc/best_model.pt"
     ck = torch.load(args.v2_path or default_v2_path, map_location=device, weights_only=False)
@@ -527,13 +527,13 @@ def main():
     deepdta.load_state_dict(ck["model_state_dict"]); deepdta.eval()
 
     # Load ESM-DTA
-    from idr_gat.model.esm_dta import EsmDTAModel
+    from anchor_transfer.model.esm_dta import EsmDTAModel
     esm_dta = EsmDTAModel(esm2_dim=480).to(device)
     ck = torch.load("models/esm_dta_dtc/best_model.pt", map_location=device, weights_only=False)
     esm_dta.load_state_dict(ck["model_state_dict"]); esm_dta.eval()
 
     # Load ConPlex
-    from idr_gat.model.conplex import ConPlex
+    from anchor_transfer.model.conplex import ConPlex
     conplex = ConPlex(esm2_dim=480).to(device)
     ck = torch.load("models/conplex_dtc/best_model.pt", map_location=device, weights_only=False)
     conplex.load_state_dict(ck["model_state_dict"]); conplex.eval()

@@ -32,7 +32,7 @@ seqs=json.load(open("data/processed/dtc_sequences.json"))
 for _,r in pd.read_csv("data/raw/davis/davis_benchmark.csv").drop_duplicates("protein_name").iterrows():
     seqs[r["protein_name"]]=r["protein_sequence"]
 
-from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2
+from anchor_transfer.model.anchor_transfer_v2 import AnchorTransferDTAv2
 v2=AnchorTransferDTAv2(esm2_dim=480).to(device)
 v2.load_state_dict(torch.load("models/v2_bdb/best_model.pt",map_location=device,weights_only=False)["model_state_dict"]);v2.eval()
 
@@ -50,7 +50,7 @@ class DeepDTAModel(nn.Module):
 dd=DeepDTAModel().to(device)
 dd.load_state_dict(torch.load("models/deepdta_bdb/best_model.pt",map_location=device,weights_only=False)["model_state_dict"]);dd.eval()
 
-from idr_gat.model.conplex import ConPlex
+from anchor_transfer.model.conplex import ConPlex
 cpx=ConPlex(esm2_dim=480).to(device)
 cpx.load_state_dict(torch.load("models/conplex_bdb/best_model.pt",map_location=device,weights_only=False)["model_state_dict"]);cpx.eval()
 

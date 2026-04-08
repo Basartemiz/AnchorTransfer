@@ -19,9 +19,9 @@ from matplotlib.patches import Patch
 from rdkit import Chem, DataStructs
 from rdkit.Chem import AllChem, inchi
 
-from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2, encode_smiles
-from idr_gat.model.conplex import ConPlex
-from idr_gat.model.esm_dta import EsmDTAModel
+from anchor_transfer.model.anchor_transfer_v2 import AnchorTransferDTAv2, encode_smiles
+from anchor_transfer.model.conplex import ConPlex
+from anchor_transfer.model.esm_dta import EsmDTAModel
 
 
 CHARISOSMISET = {

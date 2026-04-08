@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from idr_gat.data.dtc_loader import filter_dtc
+from anchor_transfer.data.dtc_loader import filter_dtc
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)

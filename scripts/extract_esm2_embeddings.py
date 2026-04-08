@@ -18,7 +18,7 @@ from pathlib import Path
 import pandas as pd
 import torch
 
-from idr_gat.data.esm_encoder import encode_sequences
+from anchor_transfer.data.esm_encoder import encode_sequences
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)

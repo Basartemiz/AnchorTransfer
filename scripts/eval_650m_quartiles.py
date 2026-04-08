@@ -35,7 +35,7 @@ def auroc_safe(t, p):
 random.seed(42); np.random.seed(42); torch.manual_seed(42)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2
+from anchor_transfer.model.anchor_transfer_v2 import AnchorTransferDTAv2
 v2_650 = AnchorTransferDTAv2(esm2_dim=1280).to(device)
 ck = torch.load("models/v2_650m_dtc/best_model.pt", map_location=device, weights_only=False)
 v2_650.load_state_dict(ck["model_state_dict"]); v2_650.eval()

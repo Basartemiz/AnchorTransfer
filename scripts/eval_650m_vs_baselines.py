@@ -59,7 +59,7 @@ if davis_csv.exists():
         seqs[r["protein_name"]] = r["protein_sequence"]
 
 # Load all models
-from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2
+from anchor_transfer.model.anchor_transfer_v2 import AnchorTransferDTAv2
 v2_35 = AnchorTransferDTAv2(esm2_dim=480).to(device)
 v2_35.load_state_dict(torch.load("models/v2_dtc/best_model.pt", map_location=device, weights_only=False)["model_state_dict"]); v2_35.eval()
 
@@ -87,11 +87,11 @@ class DeepDTAModel(nn.Module):
 deepdta = DeepDTAModel().to(device)
 deepdta.load_state_dict(torch.load("models/deepdta_dtc/best_model.pt", map_location=device, weights_only=False)["model_state_dict"]); deepdta.eval()
 
-from idr_gat.model.esm_dta import EsmDTAModel
+from anchor_transfer.model.esm_dta import EsmDTAModel
 esm_dta = EsmDTAModel(esm2_dim=480).to(device)
 esm_dta.load_state_dict(torch.load("models/esm_dta_dtc/best_model.pt", map_location=device, weights_only=False)["model_state_dict"]); esm_dta.eval()
 
-from idr_gat.model.conplex import ConPlex
+from anchor_transfer.model.conplex import ConPlex
 conplex = ConPlex(esm2_dim=480).to(device)
 conplex.load_state_dict(torch.load("models/conplex_dtc/best_model.pt", map_location=device, weights_only=False)["model_state_dict"]); conplex.eval()
 

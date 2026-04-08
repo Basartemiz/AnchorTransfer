@@ -209,9 +209,9 @@ class DTADataset(Dataset):
 class DrugBANDataset(Dataset):
     def __init__(self, df, seqs, graph_cache_path="data/processed/drugban_graph_cache.pkl"):
         try:
-            from idr_gat.model.drug_encoder import smiles_to_graph
+            from anchor_transfer.model.drug_encoder import smiles_to_graph
         except ImportError:
-            from idr_gat.model.graphdta_drug_encoder import graphdta_smiles_to_graph as smiles_to_graph
+            from anchor_transfer.model.graphdta_drug_encoder import graphdta_smiles_to_graph as smiles_to_graph
 
         self.smiles_to_graph = smiles_to_graph
         self.uids = df.uniprot_id.values
@@ -255,7 +255,7 @@ class DrugBANDataset(Dataset):
 
 class AnchorDataset(Dataset):
     def __init__(self, df, esm2, drug_to_anchor, drug_to_second):
-        from idr_gat.model.anchor_transfer_v2 import encode_smiles as enc
+        from anchor_transfer.model.anchor_transfer_v2 import encode_smiles as enc
         self.enc = enc; self.esm2 = esm2
         q, s, p, l, a = [], [], [], [], []
         uids = df.uniprot_id.values; smis = df.ligand_smiles.values
@@ -291,7 +291,7 @@ class DrugAnchorDataset(Dataset):
     to use training-derived anchors or self-derived anchors without leakage).
     """
     def __init__(self, df, esm2, prot_to_anchor_drug=None, prot_to_second_drug=None, external_mapping=None):
-        from idr_gat.model.anchor_transfer import encode_smiles as enc
+        from anchor_transfer.model.anchor_transfer import encode_smiles as enc
         self.enc = enc; self.esm2 = esm2
 
         # If no external mapping, build from this df
@@ -463,7 +463,7 @@ def main():
             if pat >= args.patience: logger.info("Early stopping"); break
 
     elif args.model == "drugban":
-        from idr_gat.model.drugban import DrugBANModel
+        from anchor_transfer.model.drugban import DrugBANModel
 
         tl = DataLoader(DrugBANDataset(train_df, seqs), batch_size=args.batch_size,
                         shuffle=True, collate_fn=collate_drugban, num_workers=0)
@@ -495,7 +495,7 @@ def main():
             if pat >= args.patience: logger.info("Early stopping"); break
 
     elif args.model == "conplex":
-        from idr_gat.model.conplex import ConPlex
+        from anchor_transfer.model.conplex import ConPlex
         tl = DataLoader(DTADataset(train_df, esm2, seqs, all_smiles), batch_size=args.batch_size,
                         shuffle=True, collate_fn=collate_dta, num_workers=0)
         vl = DataLoader(DTADataset(val_df, esm2, seqs, all_smiles), batch_size=args.batch_size,
@@ -535,13 +535,13 @@ def main():
 
     elif args.model in ("v2", "v2_attn", "v2_latent_attn"):
         if args.model == "v2":
-            from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2
+            from anchor_transfer.model.anchor_transfer_v2 import AnchorTransferDTAv2
             model_cls = AnchorTransferDTAv2
         elif args.model == "v2_attn":
-            from idr_gat.model.anchor_transfer_attn import AnchorTransferAttn
+            from anchor_transfer.model.anchor_transfer_attn import AnchorTransferAttn
             model_cls = AnchorTransferAttn
         else:
-            from idr_gat.model.anchor_transfer_latent_attn import AnchorTransferLatentAttn
+            from anchor_transfer.model.anchor_transfer_latent_attn import AnchorTransferLatentAttn
             model_cls = AnchorTransferLatentAttn
         dtc_v = train_df[train_df.uniprot_id.isin(esm2)].copy()
         idx = dtc_v.groupby("ligand_smiles")["pki"].idxmax()
@@ -585,7 +585,7 @@ def main():
             if pat >= args.patience: logger.info("Early stopping"); break
 
     elif args.model == "drug_anchor":
-        from idr_gat.model.drug_anchor_dta import DrugAnchorDTA
+        from anchor_transfer.model.drug_anchor_dta import DrugAnchorDTA
         # Build protein→strongest_drug mapping from training set
         train_v = train_df[train_df.uniprot_id.isin(esm2)].copy()
         idx = train_v.groupby("uniprot_id")["pki"].idxmax()
@@ -630,7 +630,7 @@ def main():
             if pat >= args.patience: logger.info("Early stopping"); break
 
     elif args.model == "esm_dta":
-        from idr_gat.model.esm_dta import EsmDTAModel
+        from anchor_transfer.model.esm_dta import EsmDTAModel
         tl = DataLoader(DTADataset(train_df, esm2, seqs, all_smiles), batch_size=args.batch_size,
                         shuffle=True, collate_fn=collate_dta, num_workers=0)
         vl = DataLoader(DTADataset(val_df, esm2, seqs, all_smiles), batch_size=args.batch_size,
@@ -667,25 +667,25 @@ def main():
     if args.model == "deepdta":
         model = DeepDTAModel().to(device)
     elif args.model == "drugban":
-        from idr_gat.model.drugban import DrugBANModel
+        from anchor_transfer.model.drugban import DrugBANModel
         model = DrugBANModel().to(device)
     elif args.model == "conplex":
-        from idr_gat.model.conplex import ConPlex
+        from anchor_transfer.model.conplex import ConPlex
         model = ConPlex(esm2_dim=args.esm_dim).to(device)
     elif args.model == "v2":
-        from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2
+        from anchor_transfer.model.anchor_transfer_v2 import AnchorTransferDTAv2
         model = AnchorTransferDTAv2(esm2_dim=args.esm_dim).to(device)
     elif args.model == "v2_attn":
-        from idr_gat.model.anchor_transfer_attn import AnchorTransferAttn
+        from anchor_transfer.model.anchor_transfer_attn import AnchorTransferAttn
         model = AnchorTransferAttn(esm2_dim=args.esm_dim).to(device)
     elif args.model == "v2_latent_attn":
-        from idr_gat.model.anchor_transfer_latent_attn import AnchorTransferLatentAttn
+        from anchor_transfer.model.anchor_transfer_latent_attn import AnchorTransferLatentAttn
         model = AnchorTransferLatentAttn(esm2_dim=args.esm_dim).to(device)
     elif args.model == "drug_anchor":
-        from idr_gat.model.drug_anchor_dta import DrugAnchorDTA
+        from anchor_transfer.model.drug_anchor_dta import DrugAnchorDTA
         model = DrugAnchorDTA(esm2_dim=args.esm_dim).to(device)
     elif args.model == "esm_dta":
-        from idr_gat.model.esm_dta import EsmDTAModel
+        from anchor_transfer.model.esm_dta import EsmDTAModel
         model = EsmDTAModel(esm2_dim=args.esm_dim).to(device)
     model.load_state_dict(ckpt["model_state_dict"]); model.eval()
 
@@ -707,9 +707,9 @@ def main():
 
         elif args.model == "drugban":
             try:
-                from idr_gat.model.drug_encoder import smiles_to_graph
+                from anchor_transfer.model.drug_encoder import smiles_to_graph
             except ImportError:
-                from idr_gat.model.graphdta_drug_encoder import graphdta_smiles_to_graph as smiles_to_graph
+                from anchor_transfer.model.graphdta_drug_encoder import graphdta_smiles_to_graph as smiles_to_graph
 
             if uid not in seqs: continue
             prot_batch = torch.tensor([encode_prot(seqs[uid]) for _ in smis], dtype=torch.long, device=device)
@@ -724,7 +724,7 @@ def main():
                 with torch.no_grad(): out = model(p, d); preds.append(out["score"].item())
 
         elif args.model in ("v2", "v2_attn", "v2_latent_attn"):
-            from idr_gat.model.anchor_transfer_v2 import encode_smiles as enc_v2
+            from anchor_transfer.model.anchor_transfer_v2 import encode_smiles as enc_v2
             q = esm2[uid].unsqueeze(0).to(device)
             for smi in smis:
                 anchor = None
@@ -737,7 +737,7 @@ def main():
                 with torch.no_grad(): out = model(at, q, dt); preds.append(out["pki_pred"].item())
 
         elif args.model == "drug_anchor":
-            from idr_gat.model.anchor_transfer import encode_smiles as enc_da
+            from anchor_transfer.model.anchor_transfer import encode_smiles as enc_da
             p = esm2[uid].unsqueeze(0).to(device)
             for smi in smis:
                 anc_smi = prot_strongest_drug.get(uid)

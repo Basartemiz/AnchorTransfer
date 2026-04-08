@@ -99,7 +99,7 @@ def predict_model(model_name, model, esm2, test_df, drug_strongest, seqs, device
                 with torch.no_grad(): out = model(p, d); preds.append(out["score"].item())
 
         elif model_name in ("v2", "v2_attn"):
-            from idr_gat.model.anchor_transfer_v2 import encode_smiles as enc_v2
+            from anchor_transfer.model.anchor_transfer_v2 import encode_smiles as enc_v2
             q = esm2[uid].unsqueeze(0).to(device)
             for smi in smis:
                 anchor = None
@@ -112,7 +112,7 @@ def predict_model(model_name, model, esm2, test_df, drug_strongest, seqs, device
                 with torch.no_grad(): out = model(at, q, dt); preds.append(out["pki_pred"].item())
 
         elif model_name == "drug_anchor":
-            from idr_gat.model.anchor_transfer import encode_smiles as enc_da
+            from anchor_transfer.model.anchor_transfer import encode_smiles as enc_da
             p = esm2[uid].unsqueeze(0).to(device)
             for i, smi in enumerate(smis):
                 # Need protein→strongest_drug mapping
@@ -247,7 +247,7 @@ def main():
                         all_trues.append(pkis[i])
 
             elif model_name in ("v2", "v2_attn"):
-                from idr_gat.model.anchor_transfer_v2 import encode_smiles as enc_v2
+                from anchor_transfer.model.anchor_transfer_v2 import encode_smiles as enc_v2
                 q = esm2[uid].unsqueeze(0).to(device)
                 for i, smi in enumerate(smis):
                     anchor = None
@@ -263,7 +263,7 @@ def main():
                         all_trues.append(pkis[i])
 
             elif model_name == "drug_anchor":
-                from idr_gat.model.anchor_transfer import encode_smiles as enc_da
+                from anchor_transfer.model.anchor_transfer import encode_smiles as enc_da
                 # Build protein→strongest_drug
                 prot_idx = train_dtc.groupby("uniprot_id")["pki"].idxmax()
                 prot_strongest_drug = dict(zip(train_dtc.loc[prot_idx].uniprot_id, train_dtc.loc[prot_idx].ligand_smiles))

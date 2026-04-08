@@ -189,7 +189,7 @@ def ci_fn(y, f):
     return z/n
 
 device = torch.device('cuda')
-from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2
+from anchor_transfer.model.anchor_transfer_v2 import AnchorTransferDTAv2
 model = AnchorTransferDTAv2(esm2_dim=1280).to(device)
 model.load_state_dict(torch.load('models/v2_650m_dtc/best_model.pt', map_location=device, weights_only=False)['model_state_dict']); model.eval()
 

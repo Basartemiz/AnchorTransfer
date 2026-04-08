@@ -22,7 +22,7 @@ def auroc_safe(y,p):
     if len(set(t))<2: return float("nan")
     return roc_auc_score(t,p)
 
-from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2
+from anchor_transfer.model.anchor_transfer_v2 import AnchorTransferDTAv2
 v2_650 = AnchorTransferDTAv2(esm2_dim=1280).to(device)
 v2_650.load_state_dict(torch.load("models/v2_650m_dtc/best_model.pt", map_location=device, weights_only=False)["model_state_dict"]); v2_650.eval()
 v2_35 = AnchorTransferDTAv2(esm2_dim=480).to(device)

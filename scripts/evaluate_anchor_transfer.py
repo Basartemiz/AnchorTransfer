@@ -33,7 +33,7 @@ import torch
 import torch.nn.functional as F
 from sklearn.metrics import roc_auc_score, average_precision_score
 
-from idr_gat.model.anchor_transfer import AnchorTransferDTA, encode_smiles
+from anchor_transfer.model.anchor_transfer import AnchorTransferDTA, encode_smiles
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -89,7 +89,7 @@ def load_model(model_path, esm2_dim, model_version, device):
     checkpoint = torch.load(model_path, map_location=device, weights_only=False)
 
     if model_version == "v2":
-        from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2
+        from anchor_transfer.model.anchor_transfer_v2 import AnchorTransferDTAv2
         saved_args = checkpoint.get("args", {})
         model = AnchorTransferDTAv2(
             esm2_dim=esm2_dim,

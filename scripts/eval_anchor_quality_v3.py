@@ -245,7 +245,7 @@ def main():
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
     # Load V2 model
-    from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2
+    from anchor_transfer.model.anchor_transfer_v2 import AnchorTransferDTAv2
     model = AnchorTransferDTAv2(esm2_dim=480).to(device)
     ckpt = torch.load(args.model_path, map_location=device, weights_only=False)
     model.load_state_dict(ckpt["model_state_dict"]); model.eval()
@@ -319,7 +319,7 @@ def main():
 
     conplex_path = Path("models/conplex_dtc/best_model.pt")
     if conplex_path.exists():
-        from idr_gat.model.conplex import ConPlex
+        from anchor_transfer.model.conplex import ConPlex
         m = ConPlex(esm2_dim=480).to(device)
         ck = torch.load(conplex_path, map_location=device, weights_only=False)
         m.load_state_dict(ck["model_state_dict"]); m.eval()
@@ -328,7 +328,7 @@ def main():
 
     esm_dta_path = Path("models/esm_dta_dtc/best_model.pt")
     if esm_dta_path.exists():
-        from idr_gat.model.esm_dta import EsmDTAModel
+        from anchor_transfer.model.esm_dta import EsmDTAModel
         m = EsmDTAModel(esm2_dim=480).to(device)
         ck = torch.load(esm_dta_path, map_location=device, weights_only=False)
         m.load_state_dict(ck["model_state_dict"]); m.eval()

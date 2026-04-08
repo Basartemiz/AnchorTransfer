@@ -102,9 +102,9 @@ class DeepDTAModel(nn.Module):
         x=torch.cat([d,p],1); x=self.drop(self.relu(self.fc1(x))); x=self.drop(self.relu(self.fc2(x))); x=self.drop(self.relu(self.fc3(x)))
         return self.out(x).squeeze(-1)
 
-from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2
-from idr_gat.model.conplex import ConPlex
-from idr_gat.model.esm_dta import EsmDTAModel
+from anchor_transfer.model.anchor_transfer_v2 import AnchorTransferDTAv2
+from anchor_transfer.model.conplex import ConPlex
+from anchor_transfer.model.esm_dta import EsmDTAModel
 from pathlib import Path
 
 models = {}

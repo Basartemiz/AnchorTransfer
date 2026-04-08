@@ -190,7 +190,7 @@ def main():
     train_drugs = set(dtc[dtc.uniprot_id.isin(set(train_prots_list))].ligand_smiles.unique())
 
     # Load models
-    from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2
+    from anchor_transfer.model.anchor_transfer_v2 import AnchorTransferDTAv2
     v2 = AnchorTransferDTAv2(esm2_dim=480).to(device)
     ck = torch.load("models/v2_dtc/best_model.pt", map_location=device, weights_only=False)
     v2.load_state_dict(ck["model_state_dict"]); v2.eval()
@@ -217,12 +217,12 @@ def main():
     ck = torch.load("models/deepdta_dtc/best_model.pt", map_location=device, weights_only=False)
     deepdta.load_state_dict(ck["model_state_dict"]); deepdta.eval()
 
-    from idr_gat.model.esm_dta import EsmDTAModel
+    from anchor_transfer.model.esm_dta import EsmDTAModel
     esm_dta = EsmDTAModel(esm2_dim=480).to(device)
     ck = torch.load("models/esm_dta_dtc/best_model.pt", map_location=device, weights_only=False)
     esm_dta.load_state_dict(ck["model_state_dict"]); esm_dta.eval()
 
-    from idr_gat.model.conplex import ConPlex
+    from anchor_transfer.model.conplex import ConPlex
     conplex = ConPlex(esm2_dim=480).to(device)
     ck = torch.load("models/conplex_dtc/best_model.pt", map_location=device, weights_only=False)
     conplex.load_state_dict(ck["model_state_dict"]); conplex.eval()

@@ -87,8 +87,8 @@ def eval_by_quartiles(test_labels, test_tms, preds, model_name):
 
 def main():
     import torch.nn.functional as F
-    from idr_gat.config import Config
-    from idr_gat.model.contrastive import IDRGAT
+    from anchor_transfer.config import Config
+    from anchor_transfer.model.contrastive import IDRGAT
     from train_localization import LocalizationClassifier
     from train_localization_v2 import LocalizationGATModel
 

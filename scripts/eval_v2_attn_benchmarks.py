@@ -138,7 +138,7 @@ def main():
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
     # Load model
-    from idr_gat.model.anchor_transfer_attn import AnchorTransferAttn
+    from anchor_transfer.model.anchor_transfer_attn import AnchorTransferAttn
     model = AnchorTransferAttn(esm2_dim=480).to(device)
     ckpt = torch.load(args.model_path, map_location=device, weights_only=False)
     model.load_state_dict(ckpt["model_state_dict"])

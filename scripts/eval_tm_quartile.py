@@ -1,7 +1,7 @@
 """Evaluate V2 AUROC by Foldseek TM quartile."""
 import json, pandas as pd, torch, numpy as np, logging
 from sklearn.metrics import roc_auc_score
-from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2, encode_smiles
+from anchor_transfer.model.anchor_transfer_v2 import AnchorTransferDTAv2, encode_smiles
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)

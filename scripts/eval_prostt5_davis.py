@@ -21,9 +21,9 @@ def ci_fn(y, f):
     n=np.sum(np.tile(y,(len(y),1)).T<np.tile(y,(len(y),1))); return z/n if n>0 else 0
 def rmse(y, p): return np.sqrt(mean_squared_error(y, p))
 
-from idr_gat.model.anchor_transfer_v2 import AnchorTransferDTAv2
-from idr_gat.model.conplex import ConPlex
-from idr_gat.model.esm_dta import EsmDTAModel
+from anchor_transfer.model.anchor_transfer_v2 import AnchorTransferDTAv2
+from anchor_transfer.model.conplex import ConPlex
+from anchor_transfer.model.esm_dta import EsmDTAModel
 from pathlib import Path
 
 models = {}
