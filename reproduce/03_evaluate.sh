@@ -67,7 +67,7 @@ for model_name in "${MODEL_NAMES[@]}"; do
 
     out_dir="results/${model_name}/davis"
     echo "=== Evaluating ${model_name} on davis (paper cross-dataset protocol) ==="
-    "$REPRO_PYTHON" scripts/evaluate_anchor_transfer_davis_paper.py \
+    "$REPRO_PYTHON" scripts/eval/evaluate_anchor_transfer_davis_paper.py \
         --model "models/${model_name}/best_model.pt" \
         --model-version "$version" \
         --esm2-train "$esm_train" \
@@ -93,7 +93,7 @@ for model_name in "${MODEL_NAMES[@]}"; do
 
         out_dir="results/${model_name}/${bench}"
         echo "=== Evaluating ${model_name} on ${bench} (generic protocol) ==="
-        "$REPRO_PYTHON" scripts/evaluate_anchor_transfer.py \
+        "$REPRO_PYTHON" scripts/eval/evaluate_anchor_transfer.py \
             --model "models/${model_name}/best_model.pt" \
             --model-version "$version" \
             --esm2 "$esm_train" \
@@ -161,7 +161,7 @@ PY
                 v2_650m) version="v2"; esm_train="data/processed/esm2_650m_dtc.pt"; esm_bench="data/processed/esm2_650m_benchmark.pt";;
             esac
             echo "=== Evaluating ${model_name} on Davis NOVEL proteins (<50% identity) ==="
-            "$REPRO_PYTHON" scripts/evaluate_anchor_transfer_davis_paper.py \
+            "$REPRO_PYTHON" scripts/eval/evaluate_anchor_transfer_davis_paper.py \
                 --model "models/${model_name}/best_model.pt" \
                 --model-version "$version" \
                 --esm2-train "$esm_train" \
@@ -183,7 +183,7 @@ fi
 if [[ -f "models/anchor_drugban_dtc/best_model.pt" ]] && [[ -n "$DAVIS_BENCHMARK" ]]; then
     echo ""
     echo "=== Evaluating DrugBAN + AnchorDrugBAN on Davis ==="
-    "$REPRO_PYTHON" scripts/eval_new_models_davis.py || echo "DrugBAN eval skipped (missing dependencies or baseline model)"
+    "$REPRO_PYTHON" scripts/eval/eval_new_models_davis.py || echo "DrugBAN eval skipped (missing dependencies or baseline model)"
 fi
 
 echo ""

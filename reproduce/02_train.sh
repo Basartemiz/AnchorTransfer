@@ -45,7 +45,7 @@ esac
 
 if [[ "$run_v1" == true ]]; then
     echo "=== Training V1 (AnchorTransferDTA, ESM-2 35M) ==="
-    "$REPRO_PYTHON" scripts/train_anchor_transfer.py \
+    "$REPRO_PYTHON" scripts/train/train_anchor_transfer.py \
         --graph data/processed/esm2_35m_dtc.pt \
         --interactions data/processed/dtc_training_interactions.csv \
         --output-dir models/v1_35m \
