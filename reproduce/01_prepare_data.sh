@@ -44,7 +44,7 @@ echo "=== Step 1: Filter and split DTC data ==="
 if [[ -f "data/processed/dtc_training_interactions.csv" ]] && [[ "${FORCE_DTC_PREP:-0}" != "1" ]]; then
     echo "Using existing data/processed/dtc_training_interactions.csv"
 else
-    "$REPRO_PYTHON" scripts/prepare_dtc_data.py \
+    "$REPRO_PYTHON" scripts/data/prepare_dtc_data.py \
         --dtc-csv data/raw/DTC_data.csv \
         --output-dir data/processed \
         "${EXCLUDE_ARGS[@]}" \
@@ -59,7 +59,7 @@ else
     if [[ -f "data/processed/esm2_35m_dtc.pt" ]]; then
         echo "Regenerating data/processed/esm2_35m_dtc.pt (cache is incomplete or contains non-finite embeddings)"
     fi
-    "$REPRO_PYTHON" scripts/extract_esm2_embeddings.py \
+    "$REPRO_PYTHON" scripts/data/extract_esm2_embeddings.py \
         --input data/raw/dtc_proteins.csv \
         --output data/processed/esm2_35m_dtc.pt \
         --model "$ESM2_35M" --device "$DEVICE" --batch-size 8
@@ -73,7 +73,7 @@ else
     if [[ -f "data/processed/esm2_650m_dtc.pt" ]]; then
         echo "Regenerating data/processed/esm2_650m_dtc.pt (cache is incomplete or contains non-finite embeddings)"
     fi
-    "$REPRO_PYTHON" scripts/extract_esm2_embeddings.py \
+    "$REPRO_PYTHON" scripts/data/extract_esm2_embeddings.py \
         --input data/raw/dtc_proteins.csv \
         --output data/processed/esm2_650m_dtc.pt \
         --model "$ESM2_650M" --device "$DEVICE" --batch-size 4
@@ -87,7 +87,7 @@ else
     if [[ -f "data/processed/esm2_35m_benchmark.pt" ]]; then
         echo "Regenerating data/processed/esm2_35m_benchmark.pt (cache is incomplete or contains non-finite embeddings)"
     fi
-    "$REPRO_PYTHON" scripts/extract_esm2_embeddings.py \
+    "$REPRO_PYTHON" scripts/data/extract_esm2_embeddings.py \
         --input data/raw/benchmark_proteins.csv \
         --output data/processed/esm2_35m_benchmark.pt \
         --model "$ESM2_35M" --device "$DEVICE" --batch-size 8
@@ -100,7 +100,7 @@ else
     if [[ -f "data/processed/esm2_650m_benchmark.pt" ]]; then
         echo "Regenerating data/processed/esm2_650m_benchmark.pt (cache is incomplete or contains non-finite embeddings)"
     fi
-    "$REPRO_PYTHON" scripts/extract_esm2_embeddings.py \
+    "$REPRO_PYTHON" scripts/data/extract_esm2_embeddings.py \
         --input data/raw/benchmark_proteins.csv \
         --output data/processed/esm2_650m_benchmark.pt \
         --model "$ESM2_650M" --device "$DEVICE" --batch-size 4
