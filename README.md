@@ -19,41 +19,69 @@ retraining.
 ## Repository Structure
 
 ```text
-├── src/idrgat/                     # Canonical implementation
-│   ├── model/
-│   │   ├── anchor_transfer.py      # V1 baseline (projection + concat)
-│   │   ├── anchor_transfer_v2.py   # V2 main model (triple cross-attention)
-│   │   ├── anchor_drugban.py       # DrugBanAnchor
-│   │   ├── concise_anchor.py       # ConciseAnchor
-│   │   ├── concise_anchor_v3.py    # ConciseAnchor-V3 (conditional + bilinear)
-│   │   ├── concise_anchor_cond.py  # ConciseAnchor-Cond
-│   │   ├── concise_anchor_bilinear.py
-│   │   ├── drugban.py              # DrugBAN baseline (no anchor)
-│   │   ├── concise_dta.py          # CoNCISE baseline (no anchor)
-│   │   └── esm_dta.py              # ESM-DTA baseline (DeepDTA + ESM-2)
-│   └── data/                       # Data loading utilities
-├── src/idr_gat/                    # Compatibility wrappers for legacy imports
-├── scripts/
-│   ├── prepare_dtc_data.py
-│   ├── extract_esm2_embeddings.py
-│   ├── train_anchor_transfer_v2.py # Train V2 on DTC
-│   ├── train_anchor_drugban.py     # Train DrugBanAnchor on DTC
-│   ├── train_concise_anchor_bdb.py # Train ConciseAnchor on BindingDB
-│   ├── evaluate_anchor_transfer.py
-│   └── ...                         # 40+ eval & analysis scripts
-├── reproduce/                      # Numbered reproduction pipeline
-├── paper/                          # LaTeX manuscript + figures
-└── pyproject.toml
+src/anchor_transfer/              # Core package
+  model/
+    anchor_transfer.py            # V1 baseline (projection + concat)
+    anchor_transfer_v2.py         # V2 main model (triple cross-attention)
+    anchor_drugban.py             # DrugBanAnchor (bilinear attention + anchor)
+    concise_anchor_bilinear.py    # ConciseAnchor-Bilinear (paper model)
+    concise_anchor.py             # ConciseAnchor base (FSQ + cross-attention)
+    concise_anchor_v3.py          # ConciseAnchor-V3 (conditional + bilinear)
+    concise_anchor_cond.py        # ConciseAnchor-Cond
+    drugban.py                    # DrugBAN baseline (no anchor)
+    concise_dta.py                # CoNCISE baseline (no anchor)
+    esm_dta.py                    # ESM-DTA baseline (DeepDTA + ESM-2)
+    drug_encoder.py               # GIN molecular graph encoder
+    conplex.py                    # ConPlex baseline
+  data/
+    dtc_loader.py                 # DTC data loading + splits
+    esm_encoder.py                # ESM-2 embedding extraction
+
+scripts/
+  train/                          # Training scripts
+    train_anchor_transfer.py      # Train V1/V2 on DTC
+    train_anchor_drugban.py       # Train DrugBanAnchor
+    train_concise_anchor_bdb.py   # Train ConciseAnchor on BindingDB
+    train_eval_concise_dtc.py     # Train + eval ConciseAnchor on DTC
+    ...
+  eval/                           # Evaluation scripts
+    evaluate_anchor_transfer_davis_paper.py  # Paper Davis protocol
+    evaluate_anchor_transfer.py   # Generic evaluator
+    eval_bdb_to_davis.py          # BDB → Davis cross-dataset
+    eval_bdb_to_glass.py          # BDB → GLASS cross-dataset
+    eval_knn_prot_only.py         # Protein-kNN baselines
+    ...
+  plot/                           # Plotting and figure generation
+  data/                           # Data preparation + embedding extraction
+  compare/                        # Model comparison scripts
+  archive/                        # Experimental/temporary scripts
+  drugban_paper/                  # DrugBAN paper replication subflow
+
+reproduce/                        # Numbered reproduction pipeline
+  00_setup.sh                     # Environment setup (venv, dependencies)
+  00_fetch_artifacts.sh           # Download from Zenodo (auto)
+  01_prepare_data.sh              # Filter DTC + extract ESM-2 embeddings
+  02_train.sh                     # Train V1/V2 models
+  02b_train_drugban.sh            # Train DrugBanAnchor
+  03_evaluate.sh                  # Evaluate (paper Davis protocol)
+  04_build_paper.sh               # Compile LaTeX
+  05_train_bdb.sh                 # Train ConciseAnchor on BindingDB
+  06_evaluate_bdb_cross_dataset.sh
+  07_eval_moodeng.sh
+  08_knn_baselines_dtc.sh         # kNN baselines vs ConciseAnchor
+
+pyproject.toml
+requirements.txt
 ```
 
 ## Supported Models
 
 ### Anchor Transfer V1 / V2
 
-The primary models of this project. V1 is a baseline MLP that concatenates
-projected anchor, query, and drug embeddings. V2 replaces this with **triple
-bidirectional cross-MLPs** (anchor-drug, query-drug, anchor-query) that learn
-pairwise interaction patterns before fusing them for prediction.
+The primary models. V1 is a baseline MLP that concatenates projected anchor,
+query, and drug embeddings. V2 replaces this with **triple bidirectional
+cross-MLPs** (anchor-drug, query-drug, anchor-query) that learn pairwise
+interaction patterns before fusing them for prediction.
 
 | Variant | Protein Encoder | Description |
 |---------|----------------|-------------|
@@ -63,60 +91,44 @@ pairwise interaction patterns before fusing them for prediction.
 
 ### DrugBanAnchor
 
-Extends [DrugBAN](https://doi.org/10.1093/bioinformatics/btac680) (Bai et al., 2023)
-with anchor transfer. DrugBAN uses a GIN to encode drug molecular graphs and a
-1D-CNN for protein sequences, then applies **bilinear attention** over atom-residue
-pairs to learn fine-grained binding patterns. DrugBanAnchor adds a shared bilinear
-weight matrix *W* that computes atom-level binding contexts for both the anchor and
-query proteins. For each drug atom, the model computes:
+Extends [DrugBAN](https://doi.org/10.1093/bioinformatics/btac680) with anchor
+transfer. Uses a GIN for drug molecular graphs and bilinear attention over
+atom-residue pairs. The shared bilinear weight matrix *W* computes binding
+contexts for both anchor and query proteins, compared via
+`[anchor_ctx, query_ctx, |diff|, product]`.
 
-- anchor context: `softmax(atom @ W @ anchor_residues^T) @ anchor_residues`
-- query context: `softmax(atom @ W @ query_residues^T) @ query_residues`
-
-These are compared via `[anchor_ctx, query_ctx, |diff|, product]` and pooled to
-predict pKi. The shared *W* ensures both proteins are scored through the same
-binding lens.
-
-- Model: `src/idrgat/model/anchor_drugban.py`
-- Training: `scripts/train_anchor_drugban.py`
-- Non-anchor baseline: `src/idrgat/model/drugban.py`
+- Model: `src/anchor_transfer/model/anchor_drugban.py`
+- Training: `scripts/train/train_anchor_drugban.py`
 
 ### ConciseAnchor
 
-Extends [CoNCISE](https://github.com/BIMSBbioinfo/concise) with anchor transfer.
-CoNCISE encodes drugs via Morgan fingerprints quantized through FSQ (Finite Scalar
-Quantization) into a small set of discrete codes, then applies cross-attention
-between drug codes and protein embeddings to model binding interactions.
-ConciseAnchor runs this shared encoder for both the anchor-drug and query-drug
-pairs, then compares the resulting drug and protein representations:
-
-`[anchor_drug, query_drug, |diff|, product, anchor_prot, query_prot] -> MLP -> pKi`
-
-Several variants explore different conditioning strategies:
+Extends CoNCISE with anchor transfer. Encodes drugs via Morgan fingerprints
+into discrete codes, then applies bilinear attention between drug codes and
+Raygun protein embeddings. Compares anchor-drug and query-drug binding patterns.
 
 | Variant | Key Change |
 |---------|-----------|
 | ConciseAnchor | Shared CoNCISE encoder, post-attention comparison |
 | ConciseAnchor-V3 | Drug codes conditioned on anchor; bilinear attention |
-| ConciseAnchor-Cond | Anchor-conditioned drug codes + full cross-attention |
-| ConciseAnchor-Bilinear | Bilinear attention over CoNCISE codes |
+| ConciseAnchor-Bilinear | Bilinear attention over drug codes (paper model) |
 
-- Models: `src/idrgat/model/concise_anchor*.py`
-- Training: `scripts/train_concise_anchor_bdb.py`
-- Non-anchor baseline: `src/idrgat/model/concise_dta.py`
+- Models: `src/anchor_transfer/model/concise_anchor*.py`
+- Training: `scripts/train/train_concise_anchor_bdb.py`
 
 ## Quick Start
 
 ```bash
 pip install -e .
 
-python scripts/train_anchor_transfer_v2.py \
+# Train V2 on DTC
+python scripts/train/train_anchor_transfer.py \
     --graph data/processed/esm2_35m_dtc.pt \
     --interactions data/processed/dtc_training_interactions.csv \
     --output-dir models/v2_35m \
     --device cuda
 
-python scripts/evaluate_anchor_transfer.py \
+# Evaluate on Davis
+python scripts/eval/evaluate_anchor_transfer.py \
     --model models/v2_35m/best_model.pt \
     --model-version v2 \
     --esm2 data/processed/esm2_35m_dtc.pt \
@@ -129,69 +141,65 @@ python scripts/evaluate_anchor_transfer.py \
 
 ## Full Reproduction
 
+Precomputed artifacts (embeddings, interactions, model checkpoints) are
+auto-downloaded from [Zenodo](https://zenodo.org/records/19453090).
+
 ```bash
-export PYTHON_BIN=/path/to/python3.11  # only if python3 is not 3.11+
+# 1. Setup environment
 bash reproduce/00_setup.sh
+
+# 2. Download artifacts from Zenodo
 bash reproduce/00_fetch_artifacts.sh
+
+# 3. Prepare data (filter DTC + ESM-2 embeddings)
 bash reproduce/01_prepare_data.sh
-bash reproduce/02_train.sh
-bash reproduce/03_evaluate.sh
-bash reproduce/paper_analysis.sh
+
+# 4. Train models
+bash reproduce/02_train.sh        # V1/V2
+bash reproduce/02b_train_drugban.sh  # DrugBanAnchor
+
+# 5. Evaluate
+bash reproduce/03_evaluate.sh     # Paper Davis protocol
+
+# 6. Extended experiments
+bash reproduce/05_train_bdb.sh    # ConciseAnchor on BindingDB
+bash reproduce/06_evaluate_bdb_cross_dataset.sh
+bash reproduce/08_knn_baselines_dtc.sh  # kNN baselines
+
+# 7. Build paper
 bash reproduce/04_build_paper.sh
 ```
 
-`reproduce/README.md` documents the same flow in more detail.
+See `reproduce/README.md` for detailed documentation of each step.
 
-The numbered scripts install into `.venv-repro/` and use that interpreter for
-subsequent steps. If `DEVICE` is unset, they default to `cuda` only when an
-NVIDIA GPU is available; otherwise they run on `cpu`. `reproduce/00_setup.sh`
-also auto-selects a CUDA-12.4-compatible torch build on hosts where the default
-latest wheel would be too new for the installed driver, and it installs `rdkit`
-for the paper Davis evaluation path. `reproduce/02_train.sh`
-now defaults to 20 epochs per model and keeps the best checkpoint seen in that
-window. `reproduce/03_evaluate.sh` uses the paper Davis protocol by default:
-canonical drug-duplicate exclusion, chirality-aware Tanimoto retrieval from the
-DTC training pool only, self-anchor prevention via `data/raw/dtc_proteins.csv`, and
-macro per-protein CI/AUROC/AUPRC/RMSE summaries.
+The numbered scripts install into `.venv-repro/` and auto-detect CUDA.
+Set `DEVICE=cpu` to force CPU mode.
 
 ## Data Requirements
 
-Put these files under `data/raw/` before running the numbered reproduction scripts:
+The reproduction pipeline auto-downloads most files from Zenodo. Three files
+are **not** on Zenodo and must be obtained manually:
 
-| File | Description |
-|------|-------------|
-| `DTC_data.csv` | DrugTargetCommons bulk export with Ki/Kd values |
-| `dtc_proteins.csv` | DTC proteins with `uniprot_id,sequence` |
-| `benchmark_proteins.csv` | Benchmark proteins with `uniprot_id,sequence` |
-| `benchmark_exclude.txt` | Optional UniProt IDs to exclude from training |
-| `davis_benchmark.csv` | Davis benchmark |
-| `metz_benchmark.csv` | Metz benchmark |
-| `glass_benchmark.csv` | GLASS benchmark |
-| `bdb_ki_benchmark.csv` | BindingDB Ki benchmark |
+| File | Description | Source |
+|------|-------------|--------|
+| `data/raw/DTC_data.csv` | DrugTargetCommons bulk export | [DTC](https://drugtargetcommons.fimm.fi/) |
+| `data/raw/dtc_proteins.csv` | DTC protein sequences (`uniprot_id,sequence`) | UniProt |
+| `data/raw/benchmark_proteins.csv` | Benchmark protein sequences | UniProt |
 
-`idp_benchmark.csv` is not part of the numbered `reproduce/` flow. Keep it only
-if you plan to run separate IDP-focused analyses from `scripts/`.
+Files auto-downloaded from Zenodo (placed in `embeddings_model_files/`):
+- ESM-2 embeddings: `esm2_35m_dtc_proteins_full.pt`, `esm2_650m_dtc.pt`, `esm2_{35m,650m}_benchmark.pt`
+- Interactions: `dtc_training_interactions.csv`, `bindingdb_interactions.csv`
+- Model checkpoints: `v2_35m_best_model.pt`, `v2_650m_best_model.pt`, `anchor_drugban_dtc_best_model.pt`, `concise_anchor_bdb_best_model.pt`
+- Sequences: `merged_sequences.json`
 
-`reproduce/00_fetch_artifacts.sh` now makes the peer-review path explicit:
-it searches common local roots for exact filenames, downloads `DTC_data.csv`
-when needed, and generates `dtc_proteins.csv` plus `benchmark_proteins.csv`.
-It also reuses an exact precomputed `data/processed/dtc_training_interactions.csv`
-when one exists, so `reproduce/01_prepare_data.sh` can skip the raw-DTC
-filtering step if the public export format is incomplete.
-The derived embedding files such as `data/processed/esm2_35m_dtc.pt` and
-`data/processed/esm2_650m_benchmark.pt` are then produced by
-`reproduce/01_prepare_data.sh`.
+## Citation
 
-Precomputed ESM-2 embeddings and processed interaction data are available at
-https://zenodo.org/records/19442952. Place the downloaded files in
-`data/processed/` before running `reproduce/01_prepare_data.sh` to skip
-embedding regeneration and ensure exact reproducibility.
+If you use this work, please cite:
 
-Benchmark CSVs are expected to contain `uniprot_id`, `ligand_smiles`, `pki`,
-and optionally `protein_type`. `scripts/train_single_model.py` also accepts
-`--dataset-path` and `--sequence-path` overrides for benchmark files that use
-common aliases such as `protein_name`, `drug_smiles`, and `pKd`.
-
-If you need the older generic benchmark evaluator for Metz, GLASS, or BDB-Ki,
-run `RUN_GENERIC_BENCHMARKS=1 bash reproduce/03_evaluate.sh`. The default
-numbered path only evaluates Davis with the paper protocol.
+```bibtex
+@article{temiz2025anchor,
+  title={Anchor Transfer: Cross-Dataset Drug-Target Affinity Prediction via Anchor Protein Conditioning},
+  author={Temiz, Basar},
+  year={2025}
+}
+```
