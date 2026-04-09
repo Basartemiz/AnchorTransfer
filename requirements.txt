@@ -1,0 +1,27 @@
+# Core
+torch>=2.1
+pandas>=2.1
+numpy>=1.26
+scikit-learn>=1.3
+fair-esm>=2.0
+tqdm>=4.66
+
+# Anchor Transfer V1/V2 evaluation (Tanimoto anchor retrieval)
+rdkit
+
+# DrugBanAnchor (molecular graph encoding)
+torch-geometric
+
+# ConciseAnchor (Raygun embeddings + Morgan fingerprints)
+molfeat
+einops
+lightning
+
+# ConciseAnchor Raygun dependency
+biopython
+
+# Homolog filtering (install via apt: apt install mmseqs2)
+# mmseqs2 is a system package, not a pip package
+
+# Plotting (optional, for paper figure generation)
+matplotlib
