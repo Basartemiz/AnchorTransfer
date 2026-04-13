@@ -197,9 +197,9 @@ Files auto-downloaded from Zenodo (placed in `embeddings_model_files/`):
 If you use this work, please cite:
 
 ```bibtex
-@article{temiz2025anchor,
+@article{temiz2026anchor,
   title={Anchor Transfer: Cross-Dataset Drug-Target Affinity Prediction via Anchor Protein Conditioning},
   author={Temiz, Basar},
-  year={2025}
+  year={2026}
 }
 ```
