@@ -17,7 +17,7 @@ from tqdm import tqdm
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
 log = logging.getLogger()
 
-DATA_DIR = Path(os.environ.get("DATA_DIR", str(Path(__file__).parent.parent / "data")))
+DATA_DIR = Path(os.environ.get("DATA_DIR", str(Path(__file__).resolve().parents[2] / "data")))
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # ============================================================
