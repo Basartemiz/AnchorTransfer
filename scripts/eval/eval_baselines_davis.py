@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """V2-650M vs V2-35M vs baselines on Davis — paper Table 2 protocol.
 
-All models evaluated on the SAME anchored subset (dataset-internal anchors).
-Anchors: strongest binder per drug within Davis, fallback to second if query=top.
+All models evaluated on the SAME Tanimoto-anchored subset.
+Anchors retrieved from DTC training set by chirality-aware Morgan Tanimoto
+after canonical SMILES duplicate exclusion (paper protocol).
 AUROC: >=7 positive, <=5 negative, ambiguous excluded.
-
-Ported from eval_650m_vs_baselines.py in the original repo.
 """
 import json, random, sys
 from pathlib import Path
@@ -154,35 +153,107 @@ log.info(f"Models loaded: {list(models_loaded.keys())}")
 davis = pd.read_csv(davis_csv)
 davis = davis.rename(columns={"protein_name": "uniprot_id", "drug_smiles": "ligand_smiles"})
 
-# Filter to proteins in ALL embeddings + sequences
 valid = set(esm35.keys()) & set(esm650.keys()) & set(seqs.keys())
 davis = davis[davis.uniprot_id.isin(valid)].copy()
 log.info(f"Davis (valid proteins): {len(davis)} interactions, {davis.uniprot_id.nunique()} proteins")
 
-# ── Build dataset-internal anchors ──
-strongest, second = {}, {}
-for smi, grp in davis.groupby("ligand_smiles"):
-    s = grp.sort_values("pki", ascending=False)
-    p, pk = s.uniprot_id.values, s.pki.values
-    strongest[smi] = (p[0], pk[0])
-    if len(p) > 1:
-        second[smi] = (p[1], pk[1])
+# ── Build DTC Tanimoto anchor pool (paper protocol) ──
+try:
+    from rdkit import Chem, DataStructs
+    from rdkit.Chem import AllChem
+    from rdkit import RDLogger
+    RDLogger.DisableLog("rdApp.*")
+except ImportError:
+    raise SystemExit("RDKit required for Tanimoto anchor retrieval")
 
-rows, anc_uids, anc_pkis = [], [], []
+def canonicalize(smi):
+    mol = Chem.MolFromSmiles(smi)
+    return Chem.MolToSmiles(mol, canonical=True) if mol else None
+
+def smiles_to_fp(smi):
+    mol = Chem.MolFromSmiles(smi)
+    if mol is None: return None
+    return AllChem.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=2048, useChirality=True)
+
+# Recreate DTC 80/10/10 protein split
+dtc_valid = dtc[dtc.uniprot_id.isin(esm35)]
+all_prots = sorted(set(dtc_valid.uniprot_id) & set(esm35.keys()))
+rng = random.Random(SEED)
+rng.shuffle(all_prots)
+nt = max(1, int(len(all_prots) * 0.1))
+nv = max(1, int(len(all_prots) * 0.1))
+train_prots = set(all_prots[nt + nv:])
+dtc_train = dtc_valid[dtc_valid.uniprot_id.isin(train_prots)]
+log.info(f"DTC train split: {len(dtc_train)} interactions, {len(train_prots)} proteins")
+
+# Canonical SMILES for Davis drugs (for exclusion)
+davis_canonical = set()
+for smi in davis.ligand_smiles.unique():
+    c = canonicalize(smi)
+    if c: davis_canonical.add(c)
+
+# Build anchor pool: strongest binder per drug, pKi >= 7, exclude Davis canonical duplicates
+anchor_pool = {}
+for smi, group in dtc_train.groupby("ligand_smiles"):
+    best = group.sort_values("pki", ascending=False).iloc[0]
+    uid, pki = best["uniprot_id"], float(best["pki"])
+    if pki < 7.0 or uid not in esm35: continue
+    c = canonicalize(smi)
+    if c and c in davis_canonical: continue
+    fp = smiles_to_fp(smi)
+    if fp is None: continue
+    anchor_pool[smi] = {"uid": uid, "pki": pki, "canonical": c, "fp": fp}
+log.info(f"DTC anchor pool (after canonical exclusion): {len(anchor_pool)} drugs")
+
+# Tanimoto nearest-neighbor for each Davis drug
+davis_drug_fps = {}
+for smi in davis.ligand_smiles.unique():
+    fp = smiles_to_fp(smi)
+    if fp: davis_drug_fps[smi] = fp
+
+anchor_fps = [(smi, meta["fp"], meta) for smi, meta in anchor_pool.items()]
+nearest = {}
+for davis_smi, davis_fp in davis_drug_fps.items():
+    best_sim, best_meta, best_smi = -1, None, None
+    for a_smi, a_fp, a_meta in anchor_fps:
+        sim = DataStructs.TanimotoSimilarity(davis_fp, a_fp)
+        if sim > best_sim:
+            best_sim, best_meta, best_smi = sim, a_meta, a_smi
+    if best_meta:
+        nearest[davis_smi] = {"anchor_uid": best_meta["uid"], "anchor_pki": best_meta["pki"],
+                               "tanimoto": best_sim, "anchor_drug": best_smi}
+log.info(f"Tanimoto anchors: {len(nearest)}/{len(davis_drug_fps)} Davis drugs matched")
+
+# Build self-anchor exclusion map (sequence-based)
+seq_to_dtc = {}
+dtc_prots_csv = PROJECT / "data/raw/dtc_proteins.csv"
+if dtc_prots_csv.exists():
+    for _, r in pd.read_csv(dtc_prots_csv).iterrows():
+        seq_to_dtc.setdefault(r.get("sequence", ""), set()).add(str(r["uniprot_id"]))
+
+# Build anchored subset
+rows, anc_uids, anc_pkis, tanimotos = [], [], [], []
 for i, row in davis.iterrows():
-    uid, smi = row["uniprot_id"], row["ligand_smiles"]
-    if smi not in strongest: continue
-    au, ap = strongest[smi]
-    if au == uid:
-        if smi not in second: continue
-        au, ap = second[smi]
+    smi = row["ligand_smiles"]
+    if smi not in nearest: continue
+    match = nearest[smi]
+    au = match["anchor_uid"]
+    # Self-anchor exclusion: skip if anchor protein sequence matches Davis protein
+    davis_seq = davis.loc[davis.uniprot_id == row["uniprot_id"], "protein_sequence"].iloc[0] if "protein_sequence" in davis.columns else None
+    if davis_seq and davis_seq in seq_to_dtc and au in seq_to_dtc[davis_seq]:
+        continue
     if au not in valid: continue
-    rows.append(i); anc_uids.append(au); anc_pkis.append(ap)
+    rows.append(i)
+    anc_uids.append(au)
+    anc_pkis.append(match["anchor_pki"])
+    tanimotos.append(match["tanimoto"])
 
 subset = davis.loc[rows].copy()
 subset["anchor_uid"] = anc_uids
 subset["anchor_pki"] = anc_pkis
-log.info(f"Anchored subset: {len(subset)} interactions, {subset.uniprot_id.nunique()} proteins")
+subset["tanimoto"] = tanimotos
+log.info(f"Anchored subset (Tanimoto from DTC): {len(subset)} interactions, "
+         f"{subset.uniprot_id.nunique()} proteins, tanimoto mean={np.mean(tanimotos):.3f}")
 
 # ── Batch predict all models on the SAME subset ──
 BS = 512
