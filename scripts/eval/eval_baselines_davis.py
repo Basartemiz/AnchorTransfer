@@ -125,34 +125,42 @@ for mname, mpath in [("DeepDTA", "models/deepdta_dtc/best_model.pt"),
     davis_eval[f"{mname}_pred"] = preds
     davis_eval = davis_eval[~davis_eval[f"{mname}_pred"].isna()]
 
-    ci_vals, rmse_vals, auroc_vals, auprc_vals, pearson_vals = [], [], [], [], []
     from sklearn.metrics import average_precision_score
 
-    for uid, group in davis_eval.groupby("protein_name"):
-        true = group.pki.values
-        pred = group[f"{mname}_pred"].values
-        if len(true) < 2:
-            continue
-        ci_vals.append(ci_fn(true, pred))
-        rmse_vals.append(np.sqrt(np.mean((true - pred) ** 2)))
-        pearson_vals.append(np.corrcoef(true, pred)[0, 1] if len(true) > 1 else float("nan"))
+    def macro_eval(df, label):
+        ci_vals, rmse_vals, auroc_vals, auprc_vals, pearson_vals = [], [], [], [], []
+        for uid, group in df.groupby("protein_name"):
+            true = group.pki.values
+            pred = group[f"{mname}_pred"].values
+            if len(true) < 2:
+                continue
+            ci_vals.append(ci_fn(true, pred))
+            rmse_vals.append(np.sqrt(np.mean((true - pred) ** 2)))
+            pearson_vals.append(np.corrcoef(true, pred)[0, 1] if len(true) > 1 else float("nan"))
+            # Paper protocol: >=7 positive, <=5 negative, exclude ambiguous 5-7 range
+            pos_mask = true >= 7.0
+            neg_mask = true <= 5.0
+            cls_mask = pos_mask | neg_mask
+            if cls_mask.sum() >= 2:
+                cls_labels = pos_mask[cls_mask].astype(int)
+                cls_pred = pred[cls_mask]
+                if len(np.unique(cls_labels)) == 2:
+                    auroc_vals.append(roc_auc_score(cls_labels, cls_pred))
+                    auprc_vals.append(average_precision_score(cls_labels, cls_pred))
+        ci = np.mean(ci_vals) if ci_vals else 0
+        rmse = np.mean(rmse_vals) if rmse_vals else 0
+        auroc = np.mean(auroc_vals) if auroc_vals else 0
+        auprc = np.mean(auprc_vals) if auprc_vals else 0
+        r = np.nanmean(pearson_vals) if pearson_vals else 0
+        log.info(f"{mname:20s} CI={ci:.4f} RMSE={rmse:.4f} AUROC={auroc:.4f} AUPRC={auprc:.4f} r={r:.4f} n_proteins={len(ci_vals)} ({label})")
 
-        # Paper protocol: >=7 positive, <=5 negative, exclude ambiguous 5-7 range
-        pos_mask = true >= 7.0
-        neg_mask = true <= 5.0
-        cls_mask = pos_mask | neg_mask
-        if cls_mask.sum() >= 2:
-            cls_labels = pos_mask[cls_mask].astype(int)
-            cls_pred = pred[cls_mask]
-            if len(np.unique(cls_labels)) == 2:
-                auroc_vals.append(roc_auc_score(cls_labels, cls_pred))
-                auprc_vals.append(average_precision_score(cls_labels, cls_pred))
-
-    ci = np.mean(ci_vals) if ci_vals else 0
-    rmse = np.mean(rmse_vals) if rmse_vals else 0
-    auroc = np.mean(auroc_vals) if auroc_vals else 0
-    auprc = np.mean(auprc_vals) if auprc_vals else 0
-    r = np.nanmean(pearson_vals) if pearson_vals else 0
-    log.info(f"{mname:20s} CI={ci:.4f} RMSE={rmse:.4f} AUROC={auroc:.4f} AUPRC={auprc:.4f} r={r:.4f} n_proteins={len(ci_vals)} (per-protein macro-averaged, paper protocol)")
+    # Evaluate on anchor-filtered subset (same pairs as V2-650M) for fair comparison
+    if anchor_pairs is not None:
+        filtered = davis_eval[davis_eval.apply(
+            lambda r: (r.protein_name, r.drug_smiles) in anchor_pairs, axis=1)]
+        log.info(f"  Anchor-filtered: {len(filtered)} pairs, {filtered.protein_name.nunique()} proteins")
+        macro_eval(filtered, "anchor-filtered, per-protein macro-avg")
+    else:
+        macro_eval(davis_eval, "full Davis, per-protein macro-avg")
 
 log.info("=== Baseline evaluation complete ===")
