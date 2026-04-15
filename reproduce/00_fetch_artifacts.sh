@@ -79,7 +79,7 @@ for entry in "${ZENODO_FILES[@]}"; do
 
     if [[ -f "$local_path" ]]; then
         echo "  [skip] $local_path (exists)"
-        ((skipped++))
+        skipped=$((skipped + 1))
         continue
     fi
 
@@ -87,11 +87,11 @@ for entry in "${ZENODO_FILES[@]}"; do
     echo "  [download] $zenodo_name → $local_path"
 
     if curl -fSL --progress-bar "${ZENODO_BASE}/${zenodo_name}/content" -o "$local_path"; then
-        ((downloaded++))
+        downloaded=$((downloaded + 1))
     else
         echo "  [FAILED] Could not download $zenodo_name"
         rm -f "$local_path"
-        ((failed++))
+        failed=$((failed + 1))
     fi
 done
 
@@ -111,7 +111,7 @@ missing_count=0
 for f in "${REQUIRED_NOT_ON_ZENODO[@]}"; do
     if [[ ! -f "$f" ]]; then
         echo "$f" >> missing/not_on_zenodo.txt
-        ((missing_count++))
+        missing_count=$((missing_count + 1))
     fi
 done
 
