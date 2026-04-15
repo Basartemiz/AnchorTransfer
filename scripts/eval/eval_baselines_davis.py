@@ -76,7 +76,8 @@ bench650 = torch.load(PROJECT / "data/processed/esm2_650m_benchmark.pt", map_loc
 esm650.update(bench650)
 esm650 = {k: v for k, v in esm650.items() if torch.isfinite(v).all()}
 
-# Sequences
+# DTC + Sequences
+dtc = pd.read_csv(PROJECT / "data/processed/dtc_training_interactions.csv")
 seqs = json.load(open(PROJECT / "data/processed/merged_sequences.json"))
 davis_csv = PROJECT / "data/raw/davis_benchmark.csv"
 for _, r in pd.read_csv(davis_csv).drop_duplicates("protein_name").iterrows():
