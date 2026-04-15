@@ -253,7 +253,7 @@ from anchor_transfer.model.concise_anchor_bilinear import ConciseAnchorBilinear
 concise = None
 if HAS_CONCISE:
     class ConciseRegression(nn.Module):
-        def __init__(self, nheads=32):
+        def __init__(self, nheads=32, hidden=256):
             super().__init__()
             drug_layers = [[32], [32], [32]]
             proj_dim = 256
@@ -264,17 +264,16 @@ if HAS_CONCISE:
             )
             fused_dim = len(drug_layers) * proj_dim + proj_dim
             self.backbone.final = nn.Sequential(
-                nn.Linear(fused_dim, 512), nn.ReLU(), nn.Dropout(0.2),
-                nn.Linear(512, 128), nn.ReLU(), nn.Dropout(0.2),
-                nn.Linear(128, 1),
+                nn.Linear(fused_dim, hidden), nn.ReLU(), nn.Dropout(0.2),
+                nn.Linear(hidden, 1),
             )
             nn.init.constant_(self.backbone.final[-1].bias, 6.5)
         def forward(self, drug_fp, prot_emb):
             return self.backbone(drug_fp, prot_emb, is_morgan_fingerprint=True)["binding"]
 
     # --- CoNCISE (BDB-trained) ---
-    concise = ConciseRegression(nheads=32).to(device)
     ckpt = torch.load('models/concise_bdb/best_model.pt', map_location=device, weights_only=False)
+    concise = ConciseRegression(nheads=32).to(device)
     concise.load_state_dict(ckpt['model_state_dict']); concise.eval()
     log.info(f'Loaded CoNCISE-BDB (epoch {ckpt.get("epoch", "?")})')
 else:
