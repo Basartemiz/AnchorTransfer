@@ -61,7 +61,8 @@ def auprc_safe(t, p):
     return float(average_precision_score(b[m].astype(int), p[m]))
 
 
-random.seed(42); np.random.seed(42); torch.manual_seed(42)
+SEED = 42
+random.seed(SEED); np.random.seed(SEED); torch.manual_seed(SEED)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 PROJECT = Path(__file__).resolve().parents[2]
 
