@@ -140,12 +140,15 @@ def main():
     seqs = json.load(open(DATA_DIR / "processed" / "merged_sequences.json"))
     log.info("BDB: %d interactions, Sequences: %d proteins", len(bdb), len(seqs))
 
-    # Step 1: ESM-2 embeddings
+    # Step 1 & 2: ESM-2 → Raygun embeddings
+    # If Raygun cache already exists (e.g. downloaded from Zenodo), skip ESM-2
     protein_ids = sorted(set(bdb.uniprot_id) & set(seqs.keys()))
-    esm_embs = compute_esm2_embeddings(protein_ids, seqs)
-
-    # Step 2: Raygun embeddings
-    raygun_embs = compute_raygun_embeddings(esm_embs)
+    if RAYGUN_CACHE.exists():
+        log.info("Raygun cache exists — skipping ESM-2 computation")
+        raygun_embs = compute_raygun_embeddings({})  # loads from cache
+    else:
+        esm_embs = compute_esm2_embeddings(protein_ids, seqs)
+        raygun_embs = compute_raygun_embeddings(esm_embs)
     log.info("Raygun embeddings: %d proteins, dim=%s",
              len(raygun_embs), next(iter(raygun_embs.values())).shape)
 
