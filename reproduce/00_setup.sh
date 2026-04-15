@@ -67,7 +67,7 @@ echo "=== Verifying runtime imports ==="
 import numpy
 import pandas
 import torch
-import idrgat
+import anchor_transfer
 from rdkit import Chem
 
 # Optional imports — warn if missing but don't block setup

@@ -114,7 +114,7 @@ merge_pt_dicts \
 
 if have_all "${CORE_MODELS[@]}"; then
     run_step "Davis realistic retrieval analysis" \
-        "$REPRO_PYTHON" scripts/eval_robust_davis_v2.py \
+        "$REPRO_PYTHON" scripts/eval/eval_robust_davis_v2.py \
         > "$RESULTS_DIR/eval_robust_davis_v2.log" 2>&1 || {
             echo "Davis realistic retrieval analysis failed; see results/eval_robust_davis_v2.log"
             exit 1
@@ -142,7 +142,7 @@ fi
 
 if have_all "${BASELINE_MODELS[@]}" "$REPO_ROOT/data/raw/glass/glass2_reg_major.csv" "$REPO_ROOT/data/raw/glass/ligands.tsv"; then
     run_step "GLASS stress-test supplementary panels" \
-        "$REPRO_PYTHON" scripts/archive/tmp_glass_restricted_anchor_bins_baselines.py
+        "$REPRO_PYTHON" scripts/eval/eval_glass_anchor_bins_baselines.py
 
     copy_if_exists "$PANELS_DIR/glass_unfiltered_restricted_anchor_bins_ci_distribution.png" "$PAPER_FIG_DIR/fig_glass_unfiltered_restricted_anchor_bins_ci_distribution.png"
     copy_if_exists "$PANELS_DIR/glass_filtered_restricted_anchor_bins_ci_distribution.png" "$PAPER_FIG_DIR/fig_glass_filtered_restricted_anchor_bins_ci_distribution.png"
@@ -157,22 +157,6 @@ if have_all "${BASELINE_MODELS[@]}" "$REPO_ROOT/data/processed/bindingdb_interac
         "$REPRO_PYTHON" scripts/eval/eval_bdb_family.py
 else
     echo "Skipping BindingDB family analysis: missing bindingdb_interactions.csv and/or DTC baseline checkpoints"
-fi
-
-if have_all "${BASELINE_MODELS[@]}" "$REPO_ROOT/models/v2_latent_attn_dtc/best_model.pt"; then
-    run_step "Latent-attention ablation panels" \
-        "$REPRO_PYTHON" scripts/eval/eval_anchor_quartiles_vs_baselines.py \
-            --device "$DEVICE" \
-            --benchmarks Davis Metz \
-            --v2-kind v2_latent_attn \
-            --out-prefix v2_latent_attn_anchor_quartiles
-
-    copy_if_exists "$RESULTS_DIR/davis_v2_latent_attn_v2_latent_attn_anchor_quartiles_ci_distribution.png" "$PAPER_FIG_DIR/fig_davis_v2_latent_attn_ci_distribution.png"
-    copy_if_exists "$RESULTS_DIR/davis_v2_latent_attn_v2_latent_attn_anchor_quartiles_rmse_distribution.png" "$PAPER_FIG_DIR/fig_davis_v2_latent_attn_rmse_distribution.png"
-    copy_if_exists "$RESULTS_DIR/metz_v2_latent_attn_v2_latent_attn_anchor_quartiles_ci_distribution.png" "$PAPER_FIG_DIR/fig_metz_v2_latent_attn_ci_distribution.png"
-    copy_if_exists "$RESULTS_DIR/metz_v2_latent_attn_v2_latent_attn_anchor_quartiles_rmse_distribution.png" "$PAPER_FIG_DIR/fig_metz_v2_latent_attn_rmse_distribution.png"
-else
-    echo "Skipping latent-attention ablation: missing models/v2_latent_attn_dtc/best_model.pt or DTC baseline checkpoints"
 fi
 
 echo

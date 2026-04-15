@@ -26,6 +26,9 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
+source "$REPO_ROOT/reproduce/common.sh"
+init_repro_context "$REPO_ROOT"
+require_repro_venv
 
 echo "=========================================="
 echo "  kNN baselines vs ConciseAnchor on DTC"
@@ -34,17 +37,17 @@ echo "=========================================="
 # Step 1: Train ConciseAnchor (computes Raygun + Morgan FPs if not cached)
 echo ""
 echo "[Step 1/3] Training ConciseAnchor-Bilinear (10 epochs)..."
-python3 -u scripts/train/train_eval_concise_dtc.py 2>&1 | tee results/concise_anchor_train_eval.log
+"$REPRO_PYTHON" -u scripts/train/train_eval_concise_dtc.py 2>&1 | tee results/concise_anchor_train_eval.log
 
 # Step 2: Run prot-kNN baselines
 echo ""
 echo "[Step 2/3] Running prot-kNN k=1,5 baselines..."
-python3 -u scripts/eval/eval_knn_prot_only.py 2>&1 | tee results/prot_knn_dtc.log
+"$REPRO_PYTHON" -u scripts/eval/eval_knn_prot_only.py 2>&1 | tee results/prot_knn_dtc.log
 
 # Step 3: Compare on common subset + generate plots
 echo ""
 echo "[Step 3/3] Comparing on common subset + generating plots..."
-python3 -u scripts/compare/compare_knn_vs_concise.py 2>&1 | tee results/knn_vs_concise.log
+"$REPRO_PYTHON" -u scripts/compare/compare_knn_vs_concise.py 2>&1 | tee results/knn_vs_concise.log
 
 echo ""
 echo "=========================================="

@@ -75,11 +75,11 @@ bash reproduce/04_build_paper.sh
 
 | Model | Training Script | Reproduce Step |
 |------|--------|--------|
-| `V1-35M` | `scripts/train_anchor_transfer.py` | `02_train.sh` |
-| `V2-35M` | `scripts/train_anchor_transfer_v2.py` | `02_train.sh` |
-| `V2-650M` | `scripts/train_anchor_transfer_v2.py` | `02_train.sh` |
-| `AnchorDrugBAN` | `scripts/train_anchor_drugban.py` | `02b_train_drugban.sh` |
-| `ConciseAnchor-Bilinear` | `scripts/train_concise_anchor_bdb.py` | `05_train_bdb.sh` |
+| `V1-35M` | `scripts/train/train_anchor_transfer.py` | `02_train.sh` |
+| `V2-35M` | `scripts/train/train_anchor_transfer_v2.py` | `02_train.sh` |
+| `V2-650M` | `scripts/train/train_anchor_transfer_v2.py` | `02_train.sh` |
+| `AnchorDrugBAN` | `scripts/train/train_anchor_drugban.py` | `02b_train_drugban.sh` |
+| `ConciseAnchor-Bilinear` | `scripts/train/train_concise_anchor_bdb.py` | `05_train_bdb.sh` |
 
 ## Required Raw Data
 
@@ -116,7 +116,7 @@ rather than regenerating them. Regenerated embeddings may differ slightly due to
 floating-point differences across torch/CUDA versions, which can cause up to
 ~0.04 CI difference on downstream metrics.
 
-Download from: https://zenodo.org/records/19442952
+Download from: https://zenodo.org/records/19481471
 
 | File | Size | Description |
 |------|------|-------------|
@@ -169,7 +169,7 @@ into `data/processed/` when found.
 
 `paper_analysis.sh` goes beyond the core V1/V2 reproduction path. It assumes
 additional DTC baseline checkpoints such as `deepdta_dtc`, `conplex_dtc`, and
-`esm_dta_dtc`, and it optionally uses `v2_latent_attn_dtc` plus processed
-BindingDB/GLASS files when those sections are available. Missing optional
+`esm_dta_dtc`, plus processed BindingDB/GLASS files when those sections are
+available. These baseline checkpoints are available on Zenodo. Missing optional
 artifacts are skipped with a clear message rather than causing the whole paper
 pipeline to fail.
