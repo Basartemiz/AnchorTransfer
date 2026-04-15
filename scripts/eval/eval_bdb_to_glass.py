@@ -232,33 +232,41 @@ log.info(f'Morgan FPs: {len(fp_dict)} drugs')
 # ============================================================
 # 6. Load models and predict
 # ============================================================
-from concise.model.concise import Concise
+try:
+    from concise.model.concise import Concise
+    HAS_CONCISE = True
+except ImportError:
+    HAS_CONCISE = False
+    log.warning("concise-dti not installed (requires Python 3.12+) — CoNCISE baseline will be skipped")
 from anchor_transfer.model.concise_anchor_bilinear import ConciseAnchorBilinear
 
-class ConciseRegression(nn.Module):
-    def __init__(self, nheads=32):
-        super().__init__()
-        drug_layers = [[32], [32], [32]]
-        proj_dim = 256
-        self.backbone = Concise(
-            drug_layers=drug_layers, ligand_dim=2048, residue_dim=1280,
-            drug_dim=proj_dim, proj_dim=proj_dim, nheads=nheads,
-            activation="gelu", cosine_prediction=False,
-        )
-        fused_dim = len(drug_layers) * proj_dim + proj_dim
-        self.backbone.final = nn.Sequential(
-            nn.Linear(fused_dim, 512), nn.ReLU(), nn.Dropout(0.2),
-            nn.Linear(512, 128), nn.ReLU(), nn.Dropout(0.2),
-            nn.Linear(128, 1),
-        )
-        nn.init.constant_(self.backbone.final[-1].bias, 6.5)
-    def forward(self, drug_fp, prot_emb):
-        return self.backbone(drug_fp, prot_emb, is_morgan_fingerprint=True)["binding"]
+concise = None
+if HAS_CONCISE:
+    class ConciseRegression(nn.Module):
+        def __init__(self, nheads=32, hidden=256):
+            super().__init__()
+            drug_layers = [[32], [32], [32]]
+            proj_dim = 256
+            self.backbone = Concise(
+                drug_layers=drug_layers, ligand_dim=2048, residue_dim=1280,
+                drug_dim=proj_dim, proj_dim=proj_dim, nheads=nheads,
+                activation="gelu", cosine_prediction=False,
+            )
+            fused_dim = len(drug_layers) * proj_dim + proj_dim
+            self.backbone.final = nn.Sequential(
+                nn.Linear(fused_dim, hidden), nn.ReLU(), nn.Dropout(0.2),
+                nn.Linear(hidden, 1),
+            )
+            nn.init.constant_(self.backbone.final[-1].bias, 6.5)
+        def forward(self, drug_fp, prot_emb):
+            return self.backbone(drug_fp, prot_emb, is_morgan_fingerprint=True)["binding"]
 
-concise = ConciseRegression(nheads=32).to(device)
-ckpt = torch.load('models/concise_bdb/best_model.pt', map_location=device, weights_only=False)
-concise.load_state_dict(ckpt['model_state_dict']); concise.eval()
-log.info(f'Loaded CoNCISE-BDB (epoch {ckpt.get("epoch", "?")})')
+    ckpt = torch.load('models/concise_bdb/best_model.pt', map_location=device, weights_only=False)
+    concise = ConciseRegression(nheads=32).to(device)
+    concise.load_state_dict(ckpt['model_state_dict']); concise.eval()
+    log.info(f'Loaded CoNCISE-BDB (epoch {ckpt.get("epoch", "?")})')
+else:
+    log.info('Skipping CoNCISE baseline (concise-dti not installed)')
 
 anchor_model = ConciseAnchorBilinear(ligand_dim=2048, residue_dim=1280, proj_dim=256, n_codes=3, dropout=0.2).to(device)
 ckpt2 = torch.load('models/concise_anchor_bdb/best_model.pt', map_location=device, weights_only=False)
@@ -287,7 +295,7 @@ for idx, (_, row) in enumerate(subset.iterrows()):
         qry_t = torch.stack(batch_qry).to(device)
         anc_t = torch.stack(batch_anc).to(device)
         with torch.no_grad():
-            cp = concise(fps_t, qry_t).cpu().tolist()
+            cp = concise(fps_t, qry_t).cpu().tolist() if concise is not None else [np.nan] * len(fps_t)
             ap = anchor_model(fps_t, anc_t, qry_t).cpu().tolist()
         for j, bi in enumerate(batch_indices):
             concise_preds[bi] = cp[j]
@@ -306,7 +314,10 @@ log.info(f'\n{"="*60}')
 log.info(f'BDB→GLASS2 Cross-Dataset Evaluation (GPCRs)')
 log.info(f'{"="*60}')
 
-for name, col in [('CoNCISE-BDB', 'concise_pred'), ('ConciseAnchor-BDB', 'anchor_pred')]:
+model_results = [('ConciseAnchor-BDB', 'anchor_pred')]
+if HAS_CONCISE:
+    model_results.insert(0, ('CoNCISE-BDB', 'concise_pred'))
+for name, col in model_results:
     t, p = subset_valid.pki.values, np.array(subset_valid[col].tolist())
     log.info(f'\n{name}: CI={ci_fn(t,p):.4f} RMSE={np.sqrt(np.mean((t-p)**2)):.4f} AUROC={auroc_safe(t,p):.4f} r={np.corrcoef(t,p)[0,1]:.4f} n={len(t)}')
 

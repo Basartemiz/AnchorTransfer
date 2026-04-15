@@ -186,6 +186,13 @@ if [[ -f "models/anchor_drugban_dtc/best_model.pt" ]] && [[ -n "$DAVIS_BENCHMARK
     "$REPRO_PYTHON" scripts/eval/eval_new_models_davis.py || echo "DrugBAN eval skipped (missing dependencies or baseline model)"
 fi
 
+# --- DeepDTA / ESM-DTA baselines (same filtered subset as anchor models) ---
+if [[ -n "$DAVIS_BENCHMARK" ]]; then
+    echo ""
+    echo "=== Evaluating DeepDTA + ESM-DTA baselines on Davis ==="
+    "$REPRO_PYTHON" scripts/eval/eval_baselines_davis.py
+fi
+
 echo ""
 echo "=== All evaluations complete ==="
 echo "Results saved under results/"

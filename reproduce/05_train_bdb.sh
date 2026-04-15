@@ -32,9 +32,15 @@ echo "  Subsequent runs reuse cached results/."
 "$REPRO_PYTHON" scripts/data/prepare_bdb_caches.py
 
 echo ""
-echo "=== Step 2: Training ConciseAnchor-Bilinear on BindingDB (5 epochs) ==="
-echo "  Reuses cached Raygun embeddings and Morgan FPs."
-"$REPRO_PYTHON" scripts/train/train_concise_anchor_bdb.py
+if [[ -f "models/concise_anchor_bdb/best_model.pt" ]] && [[ "${FORCE_RETRAIN:-0}" != "1" ]]; then
+    echo "=== Step 2: Using existing ConciseAnchor-Bilinear checkpoint ==="
+    echo "  models/concise_anchor_bdb/best_model.pt already exists (e.g. from Zenodo)."
+    echo "  Set FORCE_RETRAIN=1 to retrain from scratch."
+else
+    echo "=== Step 2: Training ConciseAnchor-Bilinear on BindingDB (5 epochs) ==="
+    echo "  Reuses cached Raygun embeddings and Morgan FPs."
+    "$REPRO_PYTHON" scripts/train/train_concise_anchor_bdb.py
+fi
 
 echo ""
 echo "=== BDB training complete ==="

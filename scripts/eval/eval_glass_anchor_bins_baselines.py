@@ -12,7 +12,7 @@ import pandas as pd
 import torch
 from matplotlib.patches import Patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "plot"))
 
 from generate_benchmark_filter_ci_panels import (  # noqa: E402
     AnchorTransferDTAv2,

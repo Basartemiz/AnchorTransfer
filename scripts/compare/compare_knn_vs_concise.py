@@ -16,7 +16,7 @@ from sklearn.metrics import roc_auc_score, mean_squared_error
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger()
 
-PROJECT = Path(__file__).resolve().parents[1]
+PROJECT = Path(__file__).resolve().parents[2]
 RESULTS_DIR = PROJECT / "results"
 N_WORKERS = cpu_count()
 
