@@ -126,10 +126,20 @@ for mname, mpath in [("DeepDTA", "models/deepdta_dtc/best_model.pt"),
     tv, pv = t[valid], p[valid]
     ci = ci_fn(tv, pv)
     rmse = np.sqrt(np.mean((tv - pv) ** 2))
-    binary = (tv >= 7.0).astype(int)
-    auroc = roc_auc_score(binary, pv) if 0 < binary.sum() < len(binary) else 0
     r = np.corrcoef(tv, pv)[0, 1] if len(tv) > 1 else 0
-    log.info(f"{mname:20s} CI={ci:.4f} RMSE={rmse:.4f} AUROC={auroc:.4f} r={r:.4f} n={len(tv)} (full Davis)")
+    # Paper protocol: >=7 positive, <=5 negative, exclude ambiguous 5-7 range
+    pos_mask = tv >= 7.0
+    neg_mask = tv <= 5.0
+    cls_mask = pos_mask | neg_mask
+    cls_labels = pos_mask[cls_mask].astype(int)
+    auroc = roc_auc_score(cls_labels, pv[cls_mask]) if 0 < cls_labels.sum() < len(cls_labels) else 0
+    auprc = 0
+    try:
+        from sklearn.metrics import average_precision_score
+        auprc = average_precision_score(cls_labels, pv[cls_mask]) if 0 < cls_labels.sum() < len(cls_labels) else 0
+    except Exception:
+        pass
+    log.info(f"{mname:20s} CI={ci:.4f} RMSE={rmse:.4f} AUROC={auroc:.4f} AUPRC={auprc:.4f} r={r:.4f} n={len(tv)} (full Davis, cls_n={cls_mask.sum()})")
 
     # Also evaluate on the anchor-filtered subset for fair comparison
     if anchor_pairs is not None:
@@ -142,9 +152,10 @@ for mname, mpath in [("DeepDTA", "models/deepdta_dtc/best_model.pt"),
             pf = p[mask]
             ci_f = ci_fn(tf, pf)
             rmse_f = np.sqrt(np.mean((tf - pf) ** 2))
-            binary_f = (tf >= 7.0).astype(int)
-            auroc_f = roc_auc_score(binary_f, pf) if 0 < binary_f.sum() < len(binary_f) else 0
             r_f = np.corrcoef(tf, pf)[0, 1] if len(tf) > 1 else 0
-            log.info(f"{mname:20s} CI={ci_f:.4f} RMSE={rmse_f:.4f} AUROC={auroc_f:.4f} r={r_f:.4f} n={sum(mask)} (anchor-filtered)")
+            pos_f = tf >= 7.0; neg_f = tf <= 5.0; cls_f = pos_f | neg_f
+            cls_lbl_f = pos_f[cls_f].astype(int)
+            auroc_f = roc_auc_score(cls_lbl_f, pf[cls_f]) if 0 < cls_lbl_f.sum() < len(cls_lbl_f) else 0
+            log.info(f"{mname:20s} CI={ci_f:.4f} RMSE={rmse_f:.4f} AUROC={auroc_f:.4f} r={r_f:.4f} n={sum(mask)} (anchor-filtered, cls_n={cls_f.sum()})")
 
 log.info("=== Baseline evaluation complete ===")

@@ -237,7 +237,7 @@ def bootstrap_mean_ci(values: list[float], seed: int, samples: int) -> tuple[flo
     )
 
 
-def summarize_tanimoto_bins(predictions_df: pd.DataFrame, binder_threshold: float) -> list[dict[str, float | int | str]]:
+def summarize_tanimoto_bins(predictions_df: pd.DataFrame, pos_threshold: float, neg_threshold: float) -> list[dict[str, float | int | str]]:
     bins = [
         (0.0, 0.6, "[0.0,0.6)"),
         (0.6, 0.8, "[0.6,0.8)"),
@@ -256,18 +256,25 @@ def summarize_tanimoto_bins(predictions_df: pd.DataFrame, binder_threshold: floa
             prob = group["binding_prob"].to_numpy(dtype=np.float32)
             ci = concordance_index(true, pred)
             rmse = float(np.sqrt(np.mean((true - pred) ** 2)))
-            labels = (true >= binder_threshold).astype(int)
+            pearson_r = float(np.corrcoef(true, pred)[0, 1]) if len(true) > 1 else float("nan")
+            pos_mask = true >= pos_threshold
+            neg_mask = true <= neg_threshold
+            cls_mask = pos_mask | neg_mask
             auroc = float("nan")
             auprc = float("nan")
-            if len(np.unique(labels)) == 2:
-                auroc = float(roc_auc_score(labels, prob))
-                auprc = float(average_precision_score(labels, prob))
-            protein_metrics.append((ci, rmse, auroc, auprc))
+            if cls_mask.sum() >= 2:
+                cls_labels = pos_mask[cls_mask].astype(int)
+                cls_prob = prob[cls_mask]
+                if len(np.unique(cls_labels)) == 2:
+                    auroc = float(roc_auc_score(cls_labels, cls_prob))
+                    auprc = float(average_precision_score(cls_labels, cls_prob))
+            protein_metrics.append((ci, rmse, auroc, auprc, pearson_r))
 
-        ci_vals = [metric[0] for metric in protein_metrics if not np.isnan(metric[0])]
-        rmse_vals = [metric[1] for metric in protein_metrics if not np.isnan(metric[1])]
-        auroc_vals = [metric[2] for metric in protein_metrics if not np.isnan(metric[2])]
-        auprc_vals = [metric[3] for metric in protein_metrics if not np.isnan(metric[3])]
+        ci_vals = [m[0] for m in protein_metrics if not np.isnan(m[0])]
+        rmse_vals = [m[1] for m in protein_metrics if not np.isnan(m[1])]
+        auroc_vals = [m[2] for m in protein_metrics if not np.isnan(m[2])]
+        auprc_vals = [m[3] for m in protein_metrics if not np.isnan(m[3])]
+        pearson_vals = [m[4] for m in protein_metrics if not np.isnan(m[4])]
 
         rows.append({
             "bin": label,
@@ -276,13 +283,14 @@ def summarize_tanimoto_bins(predictions_df: pd.DataFrame, binder_threshold: floa
             "n_proteins": int(subset["uniprot_id"].nunique()),
             "ci": float(np.mean(ci_vals)) if ci_vals else float("nan"),
             "rmse": float(np.mean(rmse_vals)) if rmse_vals else float("nan"),
+            "pearson_r": float(np.mean(pearson_vals)) if pearson_vals else float("nan"),
             "auroc": float(np.mean(auroc_vals)) if auroc_vals else float("nan"),
             "auprc": float(np.mean(auprc_vals)) if auprc_vals else float("nan"),
         })
     return rows
 
 
-def summarize_anchor_quartiles(predictions_df: pd.DataFrame, binder_threshold: float) -> list[dict]:
+def summarize_anchor_quartiles(predictions_df: pd.DataFrame, pos_threshold: float, neg_threshold: float) -> list[dict]:
     """Break down per-protein metrics by anchor pKi quartile (Q1-Q4)."""
     quartile_edges = predictions_df["anchor_pki"].quantile([0, 0.25, 0.5, 0.75, 1.0]).values
     labels = ["Q1 (weakest)", "Q2", "Q3", "Q4 (strongest)"]
@@ -302,18 +310,25 @@ def summarize_anchor_quartiles(predictions_df: pd.DataFrame, binder_threshold: f
             prob = group["binding_prob"].to_numpy(dtype=np.float32)
             ci = concordance_index(true, pred)
             rmse = float(np.sqrt(np.mean((true - pred) ** 2)))
-            true_labels = (true >= binder_threshold).astype(int)
+            pearson_r = float(np.corrcoef(true, pred)[0, 1]) if len(true) > 1 else float("nan")
+            pos_mask = true >= pos_threshold
+            neg_mask = true <= neg_threshold
+            cls_mask = pos_mask | neg_mask
             auroc = float("nan")
             auprc = float("nan")
-            if len(np.unique(true_labels)) == 2:
-                auroc = float(roc_auc_score(true_labels, prob))
-                auprc = float(average_precision_score(true_labels, prob))
-            protein_metrics.append((ci, rmse, auroc, auprc))
+            if cls_mask.sum() >= 2:
+                cls_labels = pos_mask[cls_mask].astype(int)
+                cls_prob = prob[cls_mask]
+                if len(np.unique(cls_labels)) == 2:
+                    auroc = float(roc_auc_score(cls_labels, cls_prob))
+                    auprc = float(average_precision_score(cls_labels, cls_prob))
+            protein_metrics.append((ci, rmse, auroc, auprc, pearson_r))
 
         ci_vals = [m[0] for m in protein_metrics if not np.isnan(m[0])]
         rmse_vals = [m[1] for m in protein_metrics if not np.isnan(m[1])]
         auroc_vals = [m[2] for m in protein_metrics if not np.isnan(m[2])]
         auprc_vals = [m[3] for m in protein_metrics if not np.isnan(m[3])]
+        pearson_vals = [m[4] for m in protein_metrics if not np.isnan(m[4])]
 
         rows.append({
             "quartile": labels[i],
@@ -323,6 +338,7 @@ def summarize_anchor_quartiles(predictions_df: pd.DataFrame, binder_threshold: f
             "n_proteins": int(subset["uniprot_id"].nunique()),
             "ci": float(np.mean(ci_vals)) if ci_vals else float("nan"),
             "rmse": float(np.mean(rmse_vals)) if rmse_vals else float("nan"),
+            "pearson_r": float(np.mean(pearson_vals)) if pearson_vals else float("nan"),
             "auroc": float(np.mean(auroc_vals)) if auroc_vals else float("nan"),
             "auprc": float(np.mean(auprc_vals)) if auprc_vals else float("nan"),
         })
@@ -341,7 +357,10 @@ def main():
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--batch-size", type=int, default=2048)
-    parser.add_argument("--binder-threshold", type=float, default=7.0)
+    parser.add_argument("--positive-threshold", type=float, default=7.0,
+                        help="pKi >= this is positive for AUROC/AUPRC")
+    parser.add_argument("--negative-threshold", type=float, default=5.0,
+                        help="pKi <= this is negative for AUROC/AUPRC (ambiguous range excluded)")
     parser.add_argument("--anchor-threshold", type=float, default=7.0)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--val-fraction", type=float, default=0.1)
@@ -508,13 +527,19 @@ def main():
         ci = concordance_index(true, pred)
         rmse = float(np.sqrt(np.mean((true - pred) ** 2)))
         pearson_r = float(np.corrcoef(true, pred)[0, 1]) if len(group) > 1 else float("nan")
-        labels = (true >= args.binder_threshold).astype(int)
 
+        # Paper protocol: >=7 positive, <=5 negative, exclude ambiguous 5-7 range
+        pos_mask = true >= args.positive_threshold
+        neg_mask = true <= args.negative_threshold
+        cls_mask = pos_mask | neg_mask
         auroc = float("nan")
         auprc = float("nan")
-        if len(np.unique(labels)) == 2:
-            auroc = float(roc_auc_score(labels, prob))
-            auprc = float(average_precision_score(labels, prob))
+        if cls_mask.sum() >= 2:
+            cls_labels = pos_mask[cls_mask].astype(int)
+            cls_prob = prob[cls_mask]
+            if len(np.unique(cls_labels)) == 2:
+                auroc = float(roc_auc_score(cls_labels, cls_prob))
+                auprc = float(average_precision_score(cls_labels, cls_prob))
 
         ci_values.append(ci)
         rmse_values.append(rmse)
@@ -558,7 +583,8 @@ def main():
             "dtc_val_fraction": args.val_fraction,
             "dtc_test_fraction": args.test_fraction,
             "anchor_threshold_pki": args.anchor_threshold,
-            "binder_threshold_pki": args.binder_threshold,
+            "positive_threshold_pki": args.positive_threshold,
+            "negative_threshold_pki": args.negative_threshold,
             "canonical_duplicate_exclusion": True,
             "tanimoto_fingerprint": "Morgan radius=2 bits=2048 useChirality=True",
         },
@@ -589,8 +615,8 @@ def main():
             "auprc_hi": auprc_hi,
             "n": int(len(per_protein_df)),
         },
-        "tanimoto_bins": summarize_tanimoto_bins(eval_df, args.binder_threshold),
-        "anchor_quartiles": summarize_anchor_quartiles(eval_df, args.binder_threshold),
+        "tanimoto_bins": summarize_tanimoto_bins(eval_df, args.positive_threshold, args.negative_threshold),
+        "anchor_quartiles": summarize_anchor_quartiles(eval_df, args.positive_threshold, args.negative_threshold),
     }
 
     with open(output_dir / "summary.json", "w") as handle:
