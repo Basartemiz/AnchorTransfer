@@ -58,18 +58,24 @@ class DeepDTA(nn.Module):
 
 
 from anchor_transfer.model.esm_dta import EsmDTAModel
+try:
+    from rdkit import Chem
+    from rdkit.RDLogger import DisableLog
+    DisableLog("rdApp.*")
+except ImportError:
+    raise SystemExit("RDKit required for canonical SMILES deduplication")
 
-# Load anchor-filtered subset if available (for apples-to-apples comparison)
-# This is the same subset that V2-650M was evaluated on
-anchor_subset = None
-v2_pred_path = PROJECT / "results" / "v2_650m" / "davis" / "predictions.csv"
-if v2_pred_path.exists():
-    anchor_preds = pd.read_csv(v2_pred_path)
-    anchor_pairs = set(zip(anchor_preds["uniprot_id"], anchor_preds["ligand_smiles"]))
-    log.info(f"Loaded anchor-filtered subset: {len(anchor_pairs)} pairs from V2-650M predictions")
-else:
-    anchor_pairs = None
-    log.info("No anchor predictions found — evaluating on full Davis")
+# Exclude Davis drugs that overlap with DTC training set (paper protocol)
+dtc = pd.read_csv(PROJECT / "data" / "processed" / "dtc_training_interactions.csv")
+def canon(s):
+    m = Chem.MolFromSmiles(s)
+    return Chem.MolToSmiles(m, canonical=True) if m else None
+dtc_canon = set(c for c in (canon(s) for s in dtc.ligand_smiles.unique()) if c)
+davis["canonical"] = davis.drug_smiles.map(canon)
+davis_filtered = davis[~davis.canonical.isin(dtc_canon)].copy()
+log.info(f"Drug overlap exclusion: {len(davis)} -> {len(davis_filtered)} interactions "
+         f"({davis.drug_smiles.nunique()} -> {davis_filtered.drug_smiles.nunique()} drugs, "
+         f"{davis_filtered.protein_name.nunique()} proteins)")
 
 esm2_35m = None
 for mname, mpath in [("DeepDTA", "models/deepdta_dtc/best_model.pt"),
@@ -120,9 +126,10 @@ for mname, mpath in [("DeepDTA", "models/deepdta_dtc/best_model.pt"),
                 if (start + BATCH_SIZE) % 5000 < BATCH_SIZE:
                     log.info(f"  {mname}: {min(start+BATCH_SIZE, len(valid_indices))}/{len(valid_indices)}")
 
-    # Per-protein macro-averaged metrics (paper protocol)
-    davis_eval = davis.copy()
-    davis_eval[f"{mname}_pred"] = preds
+    # Per-protein macro-averaged metrics on drug-filtered subset (paper protocol)
+    davis[f"{mname}_pred"] = preds
+    davis_eval = davis_filtered.copy()
+    davis_eval[f"{mname}_pred"] = davis.loc[davis_eval.index, f"{mname}_pred"]
     davis_eval = davis_eval[~davis_eval[f"{mname}_pred"].isna()]
 
     from sklearn.metrics import average_precision_score
@@ -154,13 +161,6 @@ for mname, mpath in [("DeepDTA", "models/deepdta_dtc/best_model.pt"),
         r = np.nanmean(pearson_vals) if pearson_vals else 0
         log.info(f"{mname:20s} CI={ci:.4f} RMSE={rmse:.4f} AUROC={auroc:.4f} AUPRC={auprc:.4f} r={r:.4f} n_proteins={len(ci_vals)} ({label})")
 
-    # Evaluate on anchor-filtered subset (same pairs as V2-650M) for fair comparison
-    if anchor_pairs is not None:
-        filtered = davis_eval[davis_eval.apply(
-            lambda r: (r.protein_name, r.drug_smiles) in anchor_pairs, axis=1)]
-        log.info(f"  Anchor-filtered: {len(filtered)} pairs, {filtered.protein_name.nunique()} proteins")
-        macro_eval(filtered, "anchor-filtered, per-protein macro-avg")
-    else:
-        macro_eval(davis_eval, "full Davis, per-protein macro-avg")
+    macro_eval(davis_eval, "drug-filtered, per-protein macro-avg")
 
 log.info("=== Baseline evaluation complete ===")
