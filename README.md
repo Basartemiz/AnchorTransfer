@@ -19,59 +19,42 @@ retraining.
 ## Repository Structure
 
 ```text
-src/anchor_transfer/              # Core package
-  model/
+src/anchor_transfer/              # Core package (pip install -e .)
+  model/                          # All model architectures
     anchor_transfer.py            # V1 baseline (projection + concat)
     anchor_transfer_v2.py         # V2 main model (triple cross-attention)
-    anchor_drugban.py             # DrugBanAnchor (bilinear attention + anchor)
+    anchor_drugban.py             # DrugBanAnchor (bilinear + anchor)
     concise_anchor_bilinear.py    # ConciseAnchor-Bilinear (paper model)
-    concise_anchor.py             # ConciseAnchor base (FSQ + cross-attention)
-    concise_anchor_v3.py          # ConciseAnchor-V3 (conditional + bilinear)
-    concise_anchor_cond.py        # ConciseAnchor-Cond
     drugban.py                    # DrugBAN baseline (no anchor)
     concise_dta.py                # CoNCISE baseline (no anchor)
-    esm_dta.py                    # ESM-DTA baseline (DeepDTA + ESM-2)
-    drug_encoder.py               # GIN molecular graph encoder
+    esm_dta.py                    # ESM-DTA baseline
     conplex.py                    # ConPlex baseline
+    drug_encoder.py               # GIN molecular graph encoder
   data/
-    dtc_loader.py                 # DTC data loading + splits
+    dtc_loader.py                 # DTC data loading and filtering
     esm_encoder.py                # ESM-2 embedding extraction
 
-scripts/
+scripts/                          # All scripts used by reproduce/
+  data/                           # Data preparation CLIs
   train/                          # Training scripts
-    train_anchor_transfer.py      # Train V1/V2 on DTC
-    train_anchor_drugban.py       # Train DrugBanAnchor
-    train_concise_anchor_bdb.py   # Train ConciseAnchor on BindingDB
-    train_eval_concise_dtc.py     # Train + eval ConciseAnchor on DTC
-    ...
   eval/                           # Evaluation scripts
-    evaluate_anchor_transfer_davis_paper.py  # Paper Davis protocol
-    evaluate_anchor_transfer.py   # Generic evaluator
-    eval_bdb_to_davis.py          # BDB → Davis cross-dataset
-    eval_bdb_to_glass.py          # BDB → GLASS cross-dataset
-    eval_knn_prot_only.py         # Protein-kNN baselines
-    ...
-  plot/                           # Plotting and figure generation
-  data/                           # Data preparation + embedding extraction
-  compare/                        # Model comparison scripts
-  archive/                        # Experimental/temporary scripts
-  drugban_paper/                  # DrugBAN paper replication subflow
+  plot/                           # Figure generation
+  compare/                        # Model comparison
+  drugban_paper/                  # DrugBAN paper replication
 
 reproduce/                        # Numbered reproduction pipeline
-  00_setup.sh                     # Environment setup (venv, dependencies)
-  00_fetch_artifacts.sh           # Download from Zenodo (auto)
-  01_prepare_data.sh              # Filter DTC + extract ESM-2 embeddings
-  02_train.sh                     # Train V1/V2 models
-  02b_train_drugban.sh            # Train DrugBanAnchor
+  00_setup.sh                     # Environment setup
+  00_fetch_artifacts.sh           # Download from Zenodo (23 artifacts)
+  01_prepare_data.sh              # Filter DTC + ESM-2 embeddings
+  02_train.sh                     # Train V1-35M, V2-35M, V2-650M
+  02b_train_drugban.sh            # Train AnchorDrugBAN
   03_evaluate.sh                  # Evaluate (paper Davis protocol)
-  04_build_paper.sh               # Compile LaTeX
   05_train_bdb.sh                 # Train ConciseAnchor on BindingDB
-  06_evaluate_bdb_cross_dataset.sh
-  07_eval_moodeng.sh
+  06_evaluate_bdb_cross_dataset.sh  # BDB → Davis/GLASS2
+  07_eval_moodeng.sh              # MooDeng OOD evaluation
   08_knn_baselines_dtc.sh         # kNN baselines vs ConciseAnchor
-
-pyproject.toml
-requirements.txt
+  paper_analysis.sh               # Supplemental paper figures
+  04_build_paper.sh               # Compile LaTeX paper
 ```
 
 ## Supported Models
@@ -142,7 +125,7 @@ python scripts/eval/evaluate_anchor_transfer.py \
 ## Full Reproduction
 
 Precomputed artifacts (embeddings, interactions, model checkpoints) are
-auto-downloaded from [Zenodo](https://zenodo.org/records/19453090).
+auto-downloaded from [Zenodo](https://zenodo.org/records/19481471).
 
 ```bash
 # 1. Setup environment
@@ -186,11 +169,12 @@ are **not** on Zenodo and must be obtained manually:
 | `data/raw/dtc_proteins.csv` | DTC protein sequences (`uniprot_id,sequence`) | UniProt |
 | `data/raw/benchmark_proteins.csv` | Benchmark protein sequences | UniProt |
 
-Files auto-downloaded from Zenodo (placed in `embeddings_model_files/`):
-- ESM-2 embeddings: `esm2_35m_dtc_proteins_full.pt`, `esm2_650m_dtc.pt`, `esm2_{35m,650m}_benchmark.pt`
-- Interactions: `dtc_training_interactions.csv`, `bindingdb_interactions.csv`
-- Model checkpoints: `v2_35m_best_model.pt`, `v2_650m_best_model.pt`, `anchor_drugban_dtc_best_model.pt`, `concise_anchor_bdb_best_model.pt`
-- Sequences: `merged_sequences.json`
+All other files auto-download from [Zenodo record 19481471](https://zenodo.org/records/19481471) (23 artifacts):
+- ESM-2 embeddings (35M + 650M for DTC and benchmark proteins)
+- Raygun embeddings for BindingDB
+- Processed interactions (DTC, BindingDB) and sequences
+- Benchmark datasets (Davis, GLASS2)
+- Model checkpoints (V1, V2, AnchorDrugBAN, ConciseAnchor, CoNCISE, baselines)
 
 ## Citation
 

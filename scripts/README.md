@@ -1,40 +1,70 @@
 # Scripts Directory
 
-This repo now has one supported core workflow and a smaller set of supplemental
-analysis scripts. Scripts that depended on deleted legacy `src/idr_gat`
-infrastructure were removed.
+All scripts in this directory are actively used by the numbered reproduction
+pipeline in `reproduce/`. Start with `reproduce/README.md` for the full flow.
 
-## Core Reproduction Scripts
+## Directory Layout
 
-These are the scripts used by the numbered flow in `reproduce/`.
+```text
+scripts/
+  data/                             # Data preparation (called by reproduce/01, 05)
+  train/                            # Model training (called by reproduce/02, 02b, 05, 08)
+  eval/                             # Evaluation (called by reproduce/03, 06, 08, paper_analysis)
+  plot/                             # Figure generation (called by reproduce/06, paper_analysis)
+  compare/                          # Model comparison (called by reproduce/08)
+  drugban_paper/                    # DrugBAN paper replication subflow
+```
+
+## Data Preparation (`data/`)
+
+| Script | Called By | Purpose |
+|--------|-----------|---------|
+| `prepare_dtc_data.py` | `01_prepare_data.sh` | Filter DTC interactions to clean Ki/Kd pKi values |
+| `extract_esm2_embeddings.py` | `01_prepare_data.sh` | Extract mean-pooled ESM-2 embeddings |
+| `prepare_bdb_caches.py` | `05_train_bdb.sh` | Compute ESM-2 -> Raygun + Morgan FP caches for BDB |
+| `bootstrap_repro_artifacts.py` | `00_fetch_artifacts.sh` | Local filesystem search fallback for missing artifacts |
+
+## Training (`train/`)
+
+| Script | Called By | Purpose |
+|--------|-----------|---------|
+| `train_anchor_transfer.py` | `02_train.sh` | Train V1-35M on DTC |
+| `train_anchor_transfer_v2.py` | `02_train.sh` | Train V2-35M / V2-650M on DTC |
+| `train_anchor_drugban.py` | `02b_train_drugban.sh` | Train AnchorDrugBAN on DTC |
+| `train_concise_anchor_bdb.py` | `05_train_bdb.sh` | Train ConciseAnchor-Bilinear on BindingDB |
+| `train_concise_bdb.py` | (dependency) | CoNCISE on BDB; produces Raygun/FP caches used by anchor variant |
+| `train_eval_concise_dtc.py` | `08_knn_baselines_dtc.sh` | Train + eval ConciseAnchor on DTC cold-protein split |
+| `train_moodeng_anchor_eval.py` | `07_eval_moodeng.sh` | Train ConciseAnchor on MooDeng |
+
+## Evaluation (`eval/`)
+
+| Script | Called By | Purpose |
+|--------|-----------|---------|
+| `evaluate_anchor_transfer_davis_paper.py` | `03_evaluate.sh` | Paper Davis protocol (Tanimoto retrieval, per-protein CI) |
+| `evaluate_anchor_transfer.py` | `03_evaluate.sh` | Generic benchmark evaluator (Metz, GLASS, BDB-Ki) |
+| `eval_bdb_to_davis.py` | `06_evaluate_bdb_cross_dataset.sh` | BDB -> Davis cross-dataset evaluation |
+| `eval_bdb_to_glass.py` | `06_evaluate_bdb_cross_dataset.sh` | BDB -> GLASS2 cross-dataset evaluation |
+| `eval_new_models_davis.py` | `03_evaluate.sh` | DrugBAN + AnchorDrugBAN Davis eval |
+| `eval_knn_prot_only.py` | `08_knn_baselines_dtc.sh` | Protein-only kNN baselines |
+| `eval_robust_davis_v2.py` | `paper_analysis.sh` | Davis realistic retrieval analysis |
+| `eval_bdb_family.py` | `paper_analysis.sh` | BindingDB protein family analysis |
+| `eval_glass_anchor_bins_baselines.py` | `paper_analysis.sh` | GLASS supplementary panels |
+
+## Plotting (`plot/`)
+
+| Script | Called By | Purpose |
+|--------|-----------|---------|
+| `generate_benchmark_filter_ci_panels.py` | `paper_analysis.sh` | Paper CI heatmap + quartile panels |
+| `plot_bdb_cross_dataset.py` | `06_evaluate_bdb_cross_dataset.sh` | Cross-dataset result figures |
+
+## Comparison (`compare/`)
+
+| Script | Called By | Purpose |
+|--------|-----------|---------|
+| `compare_knn_vs_concise.py` | `08_knn_baselines_dtc.sh` | kNN vs ConciseAnchor comparison + plots |
+
+## Multi-seed
 
 | Script | Purpose |
 |--------|---------|
-| `prepare_dtc_data.py` | Filter DrugTargetCommons interactions and write the processed CSV |
-| `extract_esm2_embeddings.py` | Extract mean-pooled ESM-2 embeddings for protein sequences |
-| `train_anchor_transfer.py` | Train the V1 anchor-transfer model |
-| `train_anchor_transfer_v2.py` | Train the V2 anchor-transfer model |
-| `evaluate_anchor_transfer.py` | Evaluate V1/V2 checkpoints on external benchmarks |
-
-## Supplemental Model Scripts
-
-These are still in the repo because they support side analyses or alternative
-model comparisons, but they are not required for the main numbered
-reproduction flow.
-
-| Script | Purpose |
-|--------|---------|
-| `train_single_model.py` | Train alternate models such as DeepDTA, ConPlex, ESM-DTA, DrugBAN, Drug-Anchor, and V2 attention on DTC, BindingDB, or Metz-style CSVs |
-| `run_multiseed.sh` | Multi-seed wrapper around `train_single_model.py` |
-| `eval_multiseed_bootstrap.py` | Bootstrap confidence intervals for the multi-model comparison |
-| `eval_v2_attn_benchmarks.py` | Evaluate the attention variant on external benchmarks |
-
-## Supplemental Analysis Scripts
-
-The remaining `eval_*.py`, `generate_*.py`, and embedding helper scripts are
-one-off analyses around the anchor-transfer experiments. They are kept because
-they only depend on the current anchor-transfer code path, but they are not the
-entrypoint for normal reproduction.
-
-If you are trying to reproduce the repo from scratch, start with
-`reproduce/README.md`, not with these supplemental scripts.
+| `run_multiseed.sh` | Multi-seed wrapper for training scripts |
