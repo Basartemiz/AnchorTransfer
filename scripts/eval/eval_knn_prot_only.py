@@ -173,14 +173,14 @@ if __name__ == "__main__":
     log.info(f"prot_knn k=1,5 — DTC In-Domain — {N_WORKERS} cores, GPU={DEVICE}")
 
     # Load DTC
-    dtc_path = PROJECT / "embeddings_model_files" / "dtc_training_interactions.csv"
+    dtc_path = PROJECT / "data/processed" / "dtc_training_interactions.csv"
     if not dtc_path.exists():
         dtc_path = PROJECT / "data" / "processed" / "dtc_training_interactions.csv"
     dtc = pd.read_csv(dtc_path)
     log.info(f"DTC: {len(dtc)} int, {dtc.uniprot_id.nunique()} prot, {dtc.ligand_smiles.nunique()} drugs")
 
     # ESM2
-    esm2_path = PROJECT / "embeddings_model_files" / "esm2_650m_dtc.pt"
+    esm2_path = PROJECT / "data/processed" / "esm2_650m_dtc.pt"
     esm2_raw = torch.load(esm2_path, map_location="cpu", weights_only=False)
     esm2_dict = {}
     for k, v in esm2_raw.items():

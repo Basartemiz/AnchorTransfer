@@ -35,7 +35,7 @@ log.info(f"ConciseAnchor train+eval — {N_WORKERS} cores, GPU={DEVICE}")
 # ══════════════════════════════════════════════════════════════════
 # 1. Load data
 # ══════════════════════════════════════════════════════════════════
-dtc_path = PROJECT / "embeddings_model_files" / "dtc_training_interactions.csv"
+dtc_path = PROJECT / "data/processed" / "dtc_training_interactions.csv"
 if not dtc_path.exists():
     dtc_path = PROJECT / "data" / "processed" / "dtc_training_interactions.csv"
 dtc = pd.read_csv(dtc_path)
@@ -135,7 +135,7 @@ log.info(f"Raygun: {len(raygun_embs)} proteins")
 # 4. Split — SAME as kNN (seed 42, 10/10/80 by protein)
 # ══════════════════════════════════════════════════════════════════
 # Use ESM2 protein set for split (same as kNN script)
-esm2_path = PROJECT / "embeddings_model_files" / "esm2_650m_dtc.pt"
+esm2_path = PROJECT / "data/processed" / "esm2_650m_dtc.pt"
 esm2_raw = torch.load(esm2_path, map_location="cpu", weights_only=False)
 esm2_keys = set(esm2_raw.keys())
 del esm2_raw
