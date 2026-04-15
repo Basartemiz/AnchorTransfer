@@ -68,16 +68,21 @@ for mname, mpath in [("DeepDTA", "models/deepdta_dtc/best_model.pt"),
         continue
     ckpt = torch.load(full_path, map_location=device, weights_only=False)
 
+    BATCH_SIZE = 512
     if mname == "DeepDTA":
         model = DeepDTA().to(device)
         model.load_state_dict(ckpt["model_state_dict"]); model.eval()
         log.info(f"Loaded {mname} (epoch {ckpt.get('epoch', '?')})")
+        all_smi = [enc_smi(s) for s in davis.drug_smiles]
+        all_prot = [enc_prot(s) for s in davis.protein_sequence]
         preds = []
         with torch.no_grad():
-            for _, row in davis.iterrows():
-                smi_t = torch.tensor([enc_smi(row.drug_smiles)]).to(device)
-                prot_t = torch.tensor([enc_prot(row.protein_sequence)]).to(device)
-                preds.append(model(smi_t, prot_t).item())
+            for i in range(0, len(all_smi), BATCH_SIZE):
+                smi_t = torch.tensor(all_smi[i:i+BATCH_SIZE]).to(device)
+                prot_t = torch.tensor(all_prot[i:i+BATCH_SIZE]).to(device)
+                preds.extend(model(smi_t, prot_t).cpu().tolist())
+                if (i + BATCH_SIZE) % 5000 < BATCH_SIZE:
+                    log.info(f"  {mname}: {min(i+BATCH_SIZE, len(all_smi))}/{len(all_smi)}")
     else:
         if esm2_35m is None:
             esm2_35m = torch.load(PROJECT / "data/processed/esm2_35m_dtc.pt",
@@ -88,15 +93,20 @@ for mname, mpath in [("DeepDTA", "models/deepdta_dtc/best_model.pt"),
         model = EsmDTAModel(esm2_dim=480).to(device)
         model.load_state_dict(ckpt["model_state_dict"]); model.eval()
         log.info(f"Loaded {mname} (epoch {ckpt.get('epoch', '?')})")
-        preds = []
+        # Batch: group by protein for efficient ESM-2 lookup
+        all_smi = [enc_smi(s) for s in davis.drug_smiles]
+        preds = [float("nan")] * len(davis)
+        valid_indices = [i for i, uid in enumerate(davis.protein_name) if uid in esm2_35m]
         with torch.no_grad():
-            for _, row in davis.iterrows():
-                uid = row.protein_name
-                if uid not in esm2_35m:
-                    preds.append(float("nan")); continue
-                smi_t = torch.tensor([enc_smi(row.drug_smiles)]).to(device)
-                prot_emb = esm2_35m[uid].unsqueeze(0).to(device)
-                preds.append(model(smi_t, prot_emb).item())
+            for start in range(0, len(valid_indices), BATCH_SIZE):
+                batch_idx = valid_indices[start:start+BATCH_SIZE]
+                smi_t = torch.tensor([all_smi[i] for i in batch_idx]).to(device)
+                prot_t = torch.stack([esm2_35m[davis.protein_name.iloc[i]] for i in batch_idx]).to(device)
+                batch_preds = model(smi_t, prot_t).cpu().tolist()
+                for j, idx in enumerate(batch_idx):
+                    preds[idx] = batch_preds[j]
+                if (start + BATCH_SIZE) % 5000 < BATCH_SIZE:
+                    log.info(f"  {mname}: {min(start+BATCH_SIZE, len(valid_indices))}/{len(valid_indices)}")
 
     t = davis.pki.values
     p = np.array(preds)
