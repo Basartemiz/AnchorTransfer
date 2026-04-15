@@ -113,7 +113,7 @@ def compute_morgan_fps(smiles_list, cache_path: Path, fp_dict: dict = None) -> d
 # ---------------------------------------------------------------------------
 # Model definition (must match training exactly)
 # ---------------------------------------------------------------------------
-from idrgat.model.concise_anchor_bilinear import ConciseAnchorBilinear
+from anchor_transfer.model.concise_anchor_bilinear import ConciseAnchorBilinear
 
 class ConciseAnchorBinary(nn.Module):
     """Binary wrapper: bilinear backbone → raw logit (BCEWithLogitsLoss at train,
