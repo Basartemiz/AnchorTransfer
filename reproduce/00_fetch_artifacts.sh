@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # 00_fetch_artifacts.sh — Download precomputed artifacts from Zenodo
 #
-# Zenodo record: https://zenodo.org/records/19453090
+# Zenodo record: https://zenodo.org/records/19481471
+# Downloads embeddings, processed data, benchmark datasets, and model checkpoints.
 # Falls back to local search if download fails.
 # Files the pipeline needs but Zenodo doesn't have → missing/
 set -euo pipefail
@@ -9,22 +10,49 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
-ZENODO_BASE="https://zenodo.org/records/19453090/files"
+ZENODO_RECORD="19481471"
+ZENODO_BASE="https://zenodo.org/api/records/${ZENODO_RECORD}/files"
 
 # ── Zenodo file → local path mapping ──────────────────────────────
+# All 23 files from Zenodo v4 record.
 # Format: "zenodo_filename:local_path"
 ZENODO_FILES=(
-    "dtc_training_interactions.csv:embeddings_model_files/dtc_training_interactions.csv"
+    # --- Processed interaction data ---
+    "dtc_training_interactions.csv:data/processed/dtc_training_interactions.csv"
+    "bindingdb_interactions.csv:data/processed/bindingdb_interactions.csv"
     "merged_sequences.json:data/processed/merged_sequences.json"
-    "esm2_35m_dtc_proteins_full.pt:embeddings_model_files/esm2_35m_dtc_proteins_full.pt"
-    "esm2_650m_dtc.pt:embeddings_model_files/esm2_650m_dtc.pt"
-    "esm2_35m_benchmark.pt:embeddings_model_files/esm2_35m_benchmark.pt"
-    "esm2_650m_benchmark.pt:embeddings_model_files/esm2_650m_benchmark.pt"
-    "bindingdb_interactions.csv:embeddings_model_files/bindingdb_interactions.csv"
-    "v2_35m_best_model.pt:embeddings_model_files/v2_35m_best_model.pt"
-    "v2_650m_best_model.pt:embeddings_model_files/v2_650m_best_model.pt"
-    "anchor_drugban_dtc_best_model.pt:embeddings_model_files/anchor_drugban_dtc_best_model.pt"
-    "concise_anchor_bdb_best_model.pt:embeddings_model_files/concise_anchor_bdb_best_model.pt"
+
+    # --- ESM-2 precomputed embeddings ---
+    "esm2_35m_dtc_proteins_full.pt:data/processed/esm2_35m_dtc.pt"
+    "esm2_650m_dtc.pt:data/processed/esm2_650m_dtc.pt"
+    "esm2_35m_benchmark.pt:data/processed/esm2_35m_benchmark.pt"
+    "esm2_650m_benchmark.pt:data/processed/esm2_650m_benchmark.pt"
+
+    # --- Raygun embeddings (BDB) ---
+    "raygun_bdb_embeddings.pt:results/raygun_bdb_embeddings.pt"
+
+    # --- Benchmark datasets ---
+    "davis_benchmark.csv:data/raw/davis_benchmark.csv"
+    "glass2_ki_interactions.csv:data/raw/glass/glass2_ki_interactions.csv"
+    "glass2_sequences.json:data/raw/glass/glass2_sequences.json"
+
+    # --- Core model checkpoints ---
+    "v1_35m_best_model.pt:models/v1_35m/best_model.pt"
+    "v2_35m_best_model.pt:models/v2_35m/best_model.pt"
+    "v2_650m_best_model.pt:models/v2_650m/best_model.pt"
+    "anchor_drugban_dtc_best_model.pt:models/anchor_drugban_dtc/best_model.pt"
+    "concise_anchor_bdb_best_model.pt:models/concise_anchor_bdb/best_model.pt"
+
+    # --- CoNCISE / Moodeng model checkpoints ---
+    "concise_bdb_best_model.pt:models/concise_bdb/best_model.pt"
+    "concise_moodeng_best_model.pt:models/concise_moodeng/best_model.pt"
+    "concise_anchor_moodeng_best_model.pt:models/concise_anchor_moodeng/best_model.pt"
+
+    # --- Baseline model checkpoints ---
+    "deepdta_dtc_best_model.pt:models/deepdta_dtc/best_model.pt"
+    "esm_dta_dtc_best_model.pt:models/esm_dta_dtc/best_model.pt"
+    "conplex_dtc_best_model.pt:models/conplex_dtc/best_model.pt"
+    "drugban_dtc_best_model.pt:models/drugban_dtc/best_model.pt"
 )
 
 # ── Files needed but NOT on Zenodo → tracked in missing/ ─────────
@@ -36,10 +64,10 @@ REQUIRED_NOT_ON_ZENODO=(
 
 echo "=========================================="
 echo "  Downloading artifacts from Zenodo"
-echo "  Record: 19453090"
+echo "  Record: ${ZENODO_RECORD}"
 echo "=========================================="
 
-mkdir -p embeddings_model_files data/processed data/raw missing
+mkdir -p data/raw data/raw/glass data/processed models results missing
 
 downloaded=0
 skipped=0
@@ -58,7 +86,7 @@ for entry in "${ZENODO_FILES[@]}"; do
     mkdir -p "$(dirname "$local_path")"
     echo "  [download] $zenodo_name → $local_path"
 
-    if curl -fSL --progress-bar "${ZENODO_BASE}/${zenodo_name}?download=1" -o "$local_path"; then
+    if curl -fSL --progress-bar "${ZENODO_BASE}/${zenodo_name}/content" -o "$local_path"; then
         ((downloaded++))
     else
         echo "  [FAILED] Could not download $zenodo_name"
@@ -70,7 +98,15 @@ done
 echo ""
 echo "Downloaded: $downloaded  Skipped: $skipped  Failed: $failed"
 
+# ── Symlink davis_benchmark.csv to alternate expected location ───
+if [[ -f "data/raw/davis_benchmark.csv" ]] && [[ ! -e "data/raw/davis/davis_benchmark.csv" ]]; then
+    mkdir -p data/raw/davis
+    ln -sf "$REPO_ROOT/data/raw/davis_benchmark.csv" "data/raw/davis/davis_benchmark.csv"
+    echo "  Linked data/raw/davis/davis_benchmark.csv → data/raw/davis_benchmark.csv"
+fi
+
 # ── Check for files not on Zenodo ─────────────────────────────────
+rm -f missing/not_on_zenodo.txt
 missing_count=0
 for f in "${REQUIRED_NOT_ON_ZENODO[@]}"; do
     if [[ ! -f "$f" ]]; then

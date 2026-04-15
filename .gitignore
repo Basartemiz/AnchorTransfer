@@ -3,11 +3,14 @@ __pycache__/
 .DS_Store
 *.egg-info/
 .venv*/
-data/
-models/
-results/
-embeddings_model_files/
+/data/
+/models/
+/results/
+/embeddings_model_files/
 drugban_graph_cache.*
-missing/
+/missing/
 *.pkl
 *.pt
+# Allow scripts/data/ Python files (overrides *.py exclusion above)
+!scripts/data/
+!scripts/data/*.py
