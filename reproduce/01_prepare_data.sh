@@ -21,8 +21,7 @@ ESM2_650M="esm2_t33_650M_UR50D"
 missing_raw=()
 for required_path in \
     "data/raw/DTC_data.csv" \
-    "data/raw/dtc_proteins.csv" \
-    "data/raw/benchmark_proteins.csv"
+    "data/raw/dtc_proteins.csv"
 do
     if [[ ! -f "$required_path" ]]; then
         missing_raw+=("${required_path#$REPO_ROOT/}")
@@ -33,6 +32,26 @@ if (( ${#missing_raw[@]} > 0 )); then
     echo "Missing raw inputs: ${missing_raw[*]}" >&2
     echo "Run bash reproduce/00_fetch_artifacts.sh to download/generate them." >&2
     exit 1
+fi
+
+# Auto-generate benchmark_proteins.csv from Davis benchmark if missing
+if [[ ! -f "data/raw/benchmark_proteins.csv" ]]; then
+    DAVIS_CSV=""
+    [[ -f "data/raw/davis_benchmark.csv" ]] && DAVIS_CSV="data/raw/davis_benchmark.csv"
+    [[ -f "data/raw/davis/davis_benchmark.csv" ]] && DAVIS_CSV="data/raw/davis/davis_benchmark.csv"
+    if [[ -n "$DAVIS_CSV" ]]; then
+        echo "=== Auto-generating benchmark_proteins.csv from Davis benchmark ==="
+        "$REPRO_PYTHON" -c "
+import pandas as pd
+davis = pd.read_csv('$DAVIS_CSV')
+bench = davis.drop_duplicates('protein_name')[['protein_name', 'protein_sequence']]
+bench.columns = ['uniprot_id', 'sequence']
+bench.to_csv('data/raw/benchmark_proteins.csv', index=False)
+print(f'Generated benchmark_proteins.csv: {len(bench)} proteins')
+"
+    else
+        echo "WARNING: data/raw/benchmark_proteins.csv missing and no Davis CSV found to generate it." >&2
+    fi
 fi
 
 EXCLUDE_ARGS=()
