@@ -59,6 +59,18 @@ class DeepDTA(nn.Module):
 
 from anchor_transfer.model.esm_dta import EsmDTAModel
 
+# Load anchor-filtered subset if available (for apples-to-apples comparison)
+# This is the same subset that V2-650M was evaluated on
+anchor_subset = None
+v2_pred_path = PROJECT / "results" / "v2_650m" / "davis" / "predictions.csv"
+if v2_pred_path.exists():
+    anchor_preds = pd.read_csv(v2_pred_path)
+    anchor_pairs = set(zip(anchor_preds["uniprot_id"], anchor_preds["ligand_smiles"]))
+    log.info(f"Loaded anchor-filtered subset: {len(anchor_pairs)} pairs from V2-650M predictions")
+else:
+    anchor_pairs = None
+    log.info("No anchor predictions found — evaluating on full Davis")
+
 esm2_35m = None
 for mname, mpath in [("DeepDTA", "models/deepdta_dtc/best_model.pt"),
                       ("ESM-DTA", "models/esm_dta_dtc/best_model.pt")]:
@@ -117,6 +129,22 @@ for mname, mpath in [("DeepDTA", "models/deepdta_dtc/best_model.pt"),
     binary = (tv >= 7.0).astype(int)
     auroc = roc_auc_score(binary, pv) if 0 < binary.sum() < len(binary) else 0
     r = np.corrcoef(tv, pv)[0, 1] if len(tv) > 1 else 0
-    log.info(f"{mname:20s} CI={ci:.4f} RMSE={rmse:.4f} AUROC={auroc:.4f} r={r:.4f} n={len(tv)}")
+    log.info(f"{mname:20s} CI={ci:.4f} RMSE={rmse:.4f} AUROC={auroc:.4f} r={r:.4f} n={len(tv)} (full Davis)")
+
+    # Also evaluate on the anchor-filtered subset for fair comparison
+    if anchor_pairs is not None:
+        mask = [
+            (not np.isnan(p[i])) and (davis.iloc[i].protein_name, davis.iloc[i].drug_smiles) in anchor_pairs
+            for i in range(len(davis))
+        ]
+        if sum(mask) > 0:
+            tf = t[mask]
+            pf = p[mask]
+            ci_f = ci_fn(tf, pf)
+            rmse_f = np.sqrt(np.mean((tf - pf) ** 2))
+            binary_f = (tf >= 7.0).astype(int)
+            auroc_f = roc_auc_score(binary_f, pf) if 0 < binary_f.sum() < len(binary_f) else 0
+            r_f = np.corrcoef(tf, pf)[0, 1] if len(tf) > 1 else 0
+            log.info(f"{mname:20s} CI={ci_f:.4f} RMSE={rmse_f:.4f} AUROC={auroc_f:.4f} r={r_f:.4f} n={sum(mask)} (anchor-filtered)")
 
 log.info("=== Baseline evaluation complete ===")
