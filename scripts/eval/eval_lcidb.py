@@ -446,8 +446,18 @@ def main():
     log.info(f"  ConciseAnchor loaded from {args.anchor_ckpt} "
              f"(epoch {ckpt.get('epoch', '?')})")
 
+    # ── 5b. Build oracle anchors from LCIdb itself ──
+    log.info("Step 5b/8: Building oracle anchors from LCIdb...")
+    lci_pos_clean = lci_eval[lci_eval.label == 1.0]
+    oracle_drug_to_anchors = {}
+    for smi, grp in lci_pos_clean.groupby("smiles"):
+        anchors = [pid for pid in grp.prot_id.values if pid in raygun_embs]
+        if anchors:
+            oracle_drug_to_anchors[smi] = anchors
+    log.info(f"  Oracle anchors: {len(oracle_drug_to_anchors)} drugs with LCIdb-internal binders")
+
     # ── 6. Predict ──
-    log.info("Step 6/7: Predictions on LCIdb...")
+    log.info("Step 6/8: Predictions on LCIdb...")
     pids = lci_eval.prot_id.values
     smis = lci_eval.smiles.values
     labels = lci_eval.label.values.astype(float)
@@ -458,19 +468,180 @@ def main():
 
     p_anchor = predict_anchor(pids, smis, raygun_embs, fp_dict,
                               anchor_model, drug_to_anchors, raygun_embs, device)
+
+    # Oracle: same ConciseAnchor model but with LCIdb-internal anchors
+    log.info("  Oracle (LCIdb-internal anchors)...")
+    p_oracle = predict_anchor(pids, smis, raygun_embs, fp_dict,
+                              anchor_model, oracle_drug_to_anchors, raygun_embs, device)
     del anchor_model; torch.cuda.empty_cache()
 
     p_knn = predict_knn(pids, smis, raygun_embs, fp_dict,
                         train_prot_normed, train_drug_fps, int_mat, device)
 
     # ── 7. Report ──
-    log.info("Step 7/7: Results")
-    evaluate_fair("LCIdb Benchmark (pKi>=7 pos, pKi<=5 neg, zero MooDeng overlap)",
-                  pids, smis, labels,
-                  {"CoNCISE (pretrained)": p_concise,
-                   "ConciseAnchor": p_anchor,
-                   "Prot-kNN k=1": p_knn})
+    log.info("Step 7/8: Results")
 
+    all_methods = {
+        "CoNCISE (pretrained)": p_concise,
+        "ConciseAnchor": p_anchor,
+        "ConciseAnchor-Oracle": p_oracle,
+        "Prot-kNN k=1": p_knn,
+    }
+
+    evaluate_fair("LCIdb Benchmark (pKi>=7 pos, pKi<=5 neg, zero MooDeng overlap)",
+                  pids, smis, labels, all_methods)
+
+    # ── 8. Quartile analysis ──
+    log.info("Step 8/8: Quartile analysis")
+    from sklearn.metrics import roc_auc_score, average_precision_score
+
+    # Build per-interaction anchor pKi for quartile binning
+    # For retrieved anchors: use MooDeng training pKi of the anchor
+    # For oracle anchors: use LCIdb pKi of the anchor
+    # We'll bin by whether the anchor is a strong or weak binder
+
+    # Get anchor pKi for each interaction (MooDeng-retrieved anchors)
+    anchor_pkis = np.full(len(pids), np.nan)
+    for i, (pid, smi) in enumerate(zip(pids, smis)):
+        if smi not in drug_to_anchors: continue
+        for a in drug_to_anchors[smi]:
+            if a != pid and a in raygun_embs:
+                # This anchor's drug is 'smi', it's a positive binder → label=1
+                # We don't have the actual pKi of the MooDeng anchor here,
+                # so we use the binary label as proxy (all anchors are positives)
+                anchor_pkis[i] = 1.0
+                break
+
+    # Oracle anchor pKi from LCIdb
+    oracle_pkis = np.full(len(pids), np.nan)
+    for i, (pid, smi) in enumerate(zip(pids, smis)):
+        if smi not in oracle_drug_to_anchors: continue
+        for a in oracle_drug_to_anchors[smi]:
+            if a != pid and a in raygun_embs:
+                # Get the actual pKi of this anchor from LCIdb
+                match = lci_pos_clean[(lci_pos_clean.prot_id == a) & (lci_pos_clean.smiles == smi)]
+                if len(match) > 0:
+                    oracle_pkis[i] = float(lci_eval.loc[lci_eval.prot_id == a, "label"].iloc[0]) if len(lci_eval[lci_eval.prot_id == a]) > 0 else np.nan
+                else:
+                    oracle_pkis[i] = 1.0  # it's a positive binder
+                break
+
+    # Quartile analysis by number of known binders per drug (anchor quality proxy)
+    print(f"\n{'='*80}")
+    print(f"  Quartile Analysis: by number of known binders per drug")
+    print(f"{'='*80}")
+
+    # Count binders per drug
+    binder_counts = {}
+    for smi, anchors in drug_to_anchors.items():
+        binder_counts[smi] = len(anchors)
+
+    drug_binder_count = np.array([binder_counts.get(s, 0) for s in smis])
+    has_anchor = drug_binder_count > 0
+
+    if has_anchor.sum() > 100:
+        valid_counts = drug_binder_count[has_anchor]
+        q_edges = np.quantile(valid_counts, [0, 0.25, 0.5, 0.75, 1.0])
+        q_edges = np.unique(q_edges)  # deduplicate if quartiles collapse
+
+        method_names = [m for m in all_methods.keys()]
+        header = f"  {'Quartile':<25s} {'N':>7s}"
+        for m in method_names:
+            header += f"  {m:>20s}"
+        print(header)
+        print(f"  {'-'*len(header)}")
+
+        for qi in range(len(q_edges) - 1):
+            lo, hi = q_edges[qi], q_edges[qi + 1]
+            if qi < len(q_edges) - 2:
+                mask = has_anchor & (drug_binder_count >= lo) & (drug_binder_count < hi)
+            else:
+                mask = has_anchor & (drug_binder_count >= lo) & (drug_binder_count <= hi)
+
+            if mask.sum() < 20: continue
+            lab = labels[mask]
+            if len(set(lab.astype(int))) < 2: continue
+
+            line = f"  Q{qi+1} [{int(lo)}-{int(hi)} binders] {mask.sum():>7d}"
+            for m in method_names:
+                p = np.array(all_methods[m])[mask]
+                v = ~np.isnan(p)
+                if v.sum() < 10 or len(set(lab[v].astype(int))) < 2:
+                    line += f"  {'N/A':>20s}"
+                else:
+                    auroc = roc_auc_score(lab[v], p[v])
+                    line += f"  {auroc:>20.4f}"
+            print(line)
+
+        # Overall with anchor
+        lab = labels[has_anchor]
+        line = f"  {'Overall (has anchor)':<25s} {has_anchor.sum():>7d}"
+        for m in method_names:
+            p = np.array(all_methods[m])[has_anchor]
+            v = ~np.isnan(p)
+            if v.sum() < 10 or len(set(lab[v].astype(int))) < 2:
+                line += f"  {'N/A':>20s}"
+            else:
+                auroc = roc_auc_score(lab[v], p[v])
+                line += f"  {auroc:>20.4f}"
+        print(line)
+
+    # Oracle quartile: by number of LCIdb-internal binders
+    print(f"\n{'='*80}")
+    print(f"  Oracle Quartile Analysis: by LCIdb-internal binder count per drug")
+    print(f"{'='*80}")
+
+    oracle_binder_counts = {}
+    for smi, anchors in oracle_drug_to_anchors.items():
+        oracle_binder_counts[smi] = len(anchors)
+
+    oracle_count = np.array([oracle_binder_counts.get(s, 0) for s in smis])
+    has_oracle = oracle_count > 0
+
+    if has_oracle.sum() > 100:
+        valid_oc = oracle_count[has_oracle]
+        oq_edges = np.quantile(valid_oc, [0, 0.25, 0.5, 0.75, 1.0])
+        oq_edges = np.unique(oq_edges)
+
+        header = f"  {'Quartile':<25s} {'N':>7s}  {'ConciseAnchor-Oracle':>20s}  {'CoNCISE':>20s}"
+        print(header)
+        print(f"  {'-'*len(header)}")
+
+        for qi in range(len(oq_edges) - 1):
+            lo, hi = oq_edges[qi], oq_edges[qi + 1]
+            if qi < len(oq_edges) - 2:
+                mask = has_oracle & (oracle_count >= lo) & (oracle_count < hi)
+            else:
+                mask = has_oracle & (oracle_count >= lo) & (oracle_count <= hi)
+
+            if mask.sum() < 20: continue
+            lab = labels[mask]
+            if len(set(lab.astype(int))) < 2: continue
+
+            line = f"  Q{qi+1} [{int(lo)}-{int(hi)} binders] {mask.sum():>7d}"
+            for preds in [p_oracle, p_concise]:
+                p = preds[mask]
+                v = ~np.isnan(p)
+                if v.sum() < 10 or len(set(lab[v].astype(int))) < 2:
+                    line += f"  {'N/A':>20s}"
+                else:
+                    auroc = roc_auc_score(lab[v], p[v])
+                    line += f"  {auroc:>20.4f}"
+            print(line)
+
+        lab = labels[has_oracle]
+        line = f"  {'Overall (has oracle)':<25s} {has_oracle.sum():>7d}"
+        for preds in [p_oracle, p_concise]:
+            p = preds[has_oracle]
+            v = ~np.isnan(p)
+            if v.sum() < 10 or len(set(lab[v].astype(int))) < 2:
+                line += f"  {'N/A':>20s}"
+            else:
+                auroc = roc_auc_score(lab[v], p[v])
+                line += f"  {auroc:>20.4f}"
+        print(line)
+
+    print(f"\n{'='*80}")
     log.info("\nAll done.")
 
 
