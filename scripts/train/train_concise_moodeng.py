@@ -138,15 +138,15 @@ class ConciseBinaryDS(Dataset):
         return self.fps[i], raygun_embs[self.prot_pids[i]], self.labels[i]
 
 # ================================================================
-# Model: CoNCISE from scratch with binary head
+# Model: CoNCISE from scratch (native architecture, no modifications)
 # ================================================================
 from concise.model.concise import Concise
 
 class ConciseBinary(nn.Module):
-    """CoNCISE architecture trained from scratch → binary logit (BCEWithLogitsLoss)."""
+    """CoNCISE architecture trained from scratch with cosine_prediction=False.
+    Native Sigmoid output → [0,1] probability. Train with BCE loss."""
     def __init__(self):
         super().__init__()
-        # Build CoNCISE from scratch (random weights, NOT pretrained)
         self.backbone = Concise(
             drug_layers=[[32], [32], [32]],
             ligand_dim=2048,
@@ -155,25 +155,12 @@ class ConciseBinary(nn.Module):
             proj_dim=256,
             nheads=16,
             activation="gelu",
-            cosine_prediction=False,
+            cosine_prediction=False,  # Sigmoid output, not cosine
         )
-        # Replace final head with binary classifier
-        n_drug_codes = 3
-        fused_dim = n_drug_codes * 256 + 256
-        self.backbone.final = nn.Sequential(
-            nn.Linear(fused_dim, 512),
-            nn.GELU(),
-            nn.Dropout(0.2),
-            nn.Linear(512, 128),
-            nn.GELU(),
-            nn.Dropout(0.2),
-            nn.Linear(128, 1),
-        )
-        nn.init.constant_(self.backbone.final[-1].bias, 0.0)
 
     def forward(self, drug_fp, prot_emb):
         out = self.backbone(drug_fp, prot_emb, is_morgan_fingerprint=True)
-        return out["binding"]  # raw logit
+        return out["binding"]  # already [0,1] via Sigmoid
 
 # ================================================================
 # Train
@@ -195,7 +182,7 @@ else:
     val_loader = DataLoader(val_ds, batch_size=256, shuffle=False, num_workers=0)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.BCELoss()  # model already outputs [0,1] via Sigmoid
     best_auroc = 0.0
     patience, patience_count = 10, 0
 
@@ -219,7 +206,7 @@ else:
             for fps, embs, labels in val_loader:
                 fps, embs = fps.to(DEVICE), embs.to(DEVICE)
                 logits = model(fps, embs)
-                val_preds.extend(torch.sigmoid(logits).cpu().tolist())
+                val_preds.extend(logits.cpu().tolist())  # already [0,1]
                 val_labels.extend(labels.tolist())
 
         val_auroc = roc_auc_score(val_labels, val_preds)
@@ -258,7 +245,7 @@ with torch.no_grad():
         fps = torch.tensor(np.array([fp_dict[s] for s in batch.smiles])).to(DEVICE)
         embs = torch.stack([raygun_embs[p] for p in batch.prot_id]).to(DEVICE)
         logits = model(fps, embs)
-        test_preds.extend(torch.sigmoid(logits).cpu().tolist())
+        test_preds.extend(logits.cpu().tolist())  # already [0,1]
         test_labels.extend(batch.label.tolist())
 
 auroc = roc_auc_score(test_labels, test_preds)
