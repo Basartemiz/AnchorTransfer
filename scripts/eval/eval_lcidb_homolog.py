@@ -61,7 +61,9 @@ def homology_filter_mmseqs2(query_seqs: dict, target_seqs: dict,
         subprocess.run([
             "mmseqs", "search", str(querydb), str(targetdb), str(resultdb), str(tmp),
             "--min-seq-id", str(identity_threshold),
-            "-s", "7.5",  # sensitivity
+            "-c", "0.8",          # 80% alignment coverage
+            "--cov-mode", "0",    # coverage of query AND target
+            "-s", "7.5",          # sensitivity
             "--threads", "4",
         ], capture_output=True, check=True)
         subprocess.run([
@@ -105,6 +107,7 @@ def compute_raygun_embeddings(sequences, device, cache_path, batch_label=""):
     raygun = raygun.eval().to(device)
 
     for idx, (pid, seq) in enumerate(missing.items()):
+        seq = seq.upper()  # fix: match eval_lcidb.py preprocessing
         if len(seq) < 25: continue
         try:
             _, _, toks = bc([(pid, seq[:1022])])
@@ -187,6 +190,7 @@ def predict_anchor(prot_ids, smiles_arr, emb_dict, fp_dict, model,
             for j, (pid, smi) in enumerate(zip(bp, bs)):
                 if smi not in drug_to_anchors or smi not in fp_dict or pid not in emb_dict:
                     continue
+                # Use first valid non-self anchor
                 anc = None
                 for a in drug_to_anchors[smi]:
                     if a != pid and a in all_embs:
