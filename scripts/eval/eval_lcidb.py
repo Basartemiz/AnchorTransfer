@@ -192,58 +192,6 @@ def predict_anchor(prot_ids, smiles_arr, emb_dict, fp_dict, model,
     return preds
 
 
-def predict_knn(prot_ids, smiles_arr, emb_dict, fp_dict,
-                train_prot_normed, train_drug_fps, int_mat, device):
-    preds = np.full(len(prot_ids), np.nan)
-
-    unique_prots = list(set(prot_ids))
-    prot_embs = np.array([
-        emb_dict[p].mean(dim=0).numpy() if isinstance(emb_dict[p], torch.Tensor)
-        else emb_dict[p].mean(axis=0)
-        for p in unique_prots])
-    qn = prot_embs / (np.linalg.norm(prot_embs, axis=1, keepdims=True) + 1e-10)
-    ps = qn @ train_prot_normed.T
-    prot_topk = {}
-    for i, p in enumerate(unique_prots):
-        best = np.argmax(ps[i])
-        if ps[i, best] > 0:
-            prot_topk[p] = (best, ps[i, best])
-    log.info(f"    kNN: protein top-1 computed ({len(unique_prots)} proteins)")
-
-    unique_drugs = list(set(smiles_arr))
-    drug_fps_np = np.array([fp_dict[d] for d in unique_drugs if d in fp_dict])
-    valid_drugs = [d for d in unique_drugs if d in fp_dict]
-    drug_idx_map = {d: i for i, d in enumerate(valid_drugs)}
-
-    CHUNK = 4000
-    train_fps_gpu = torch.tensor(train_drug_fps, dtype=torch.float32).to(device)
-    train_bits = train_fps_gpu.sum(1)
-    ds = np.empty((len(valid_drugs), train_drug_fps.shape[0]), dtype=np.float32)
-    for ci in range(0, len(valid_drugs), CHUNK):
-        chunk = torch.tensor(drug_fps_np[ci:ci+CHUNK], dtype=torch.float32).to(device)
-        inter = chunk @ train_fps_gpu.T
-        q_bits = chunk.sum(1, keepdim=True)
-        tani = inter / torch.clamp(q_bits + train_bits.unsqueeze(0) - inter, min=1)
-        ds[ci:ci+CHUNK] = tani.cpu().numpy()
-    del train_fps_gpu
-    torch.cuda.empty_cache()
-    log.info(f"    kNN: drug Tanimoto computed ({len(valid_drugs)} drugs)")
-
-    for i in range(len(prot_ids)):
-        pid, smi = prot_ids[i], smiles_arr[i]
-        if pid not in prot_topk or smi not in drug_idx_map:
-            continue
-        best_pi, best_psim = prot_topk[pid]
-        bound_mask = int_mat[:, best_pi] > 0
-        if not bound_mask.any():
-            continue
-        di = drug_idx_map[smi]
-        max_sim = ds[di, bound_mask].max()
-        if max_sim > 0:
-            preds[i] = max_sim * best_psim
-    return preds
-
-
 # ---------------------------------------------------------------------------
 # Fair evaluation
 # ---------------------------------------------------------------------------
@@ -409,26 +357,6 @@ def main():
             drug_to_anchors[smi] = anchors
     log.info(f"  Anchors: {len(drug_to_anchors)} drugs with known binders")
 
-    # kNN structures
-    train_prot_ids = sorted(set(train_filt.prot_id) & set(raygun_embs.keys()))
-    train_prot_embs = np.array([raygun_embs[p].mean(dim=0).numpy()
-                                 for p in train_prot_ids])
-    train_prot_normed = train_prot_embs / (
-        np.linalg.norm(train_prot_embs, axis=1, keepdims=True) + 1e-10)
-
-    train_drug_ids = sorted(set(train_filt.smiles) & set(fp_dict.keys()))
-    train_drug_fps = np.array([fp_dict[d] for d in train_drug_ids])
-    train_drug_idx = {d: i for i, d in enumerate(train_drug_ids)}
-    train_prot_idx = {p: i for i, p in enumerate(train_prot_ids)}
-
-    int_mat = np.zeros((len(train_drug_ids), len(train_prot_ids)), dtype=np.float32)
-    for _, r in train_filt.iterrows():
-        di = train_drug_idx.get(r.smiles, -1)
-        pi = train_prot_idx.get(r.prot_id, -1)
-        if di >= 0 and pi >= 0:
-            int_mat[di, pi] = 1.0
-    log.info(f"  Interaction matrix: {int_mat.shape}, nnz={np.count_nonzero(int_mat)}")
-
     del train_raw, train_pos, train_filt
     import gc; gc.collect()
 
@@ -475,9 +403,6 @@ def main():
                               anchor_model, oracle_drug_to_anchors, raygun_embs, device)
     del anchor_model; torch.cuda.empty_cache()
 
-    p_knn = predict_knn(pids, smis, raygun_embs, fp_dict,
-                        train_prot_normed, train_drug_fps, int_mat, device)
-
     # ── 7. Report ──
     log.info("Step 7/8: Results")
 
@@ -485,7 +410,6 @@ def main():
         "CoNCISE (pretrained)": p_concise,
         "ConciseAnchor": p_anchor,
         "ConciseAnchor-Oracle": p_oracle,
-        "Prot-kNN k=1": p_knn,
     }
 
     evaluate_fair("LCIdb Benchmark (pKi>=7 pos, pKi<=5 neg, zero MooDeng overlap)",
