@@ -138,29 +138,42 @@ class ConciseBinaryDS(Dataset):
         return self.fps[i], raygun_embs[self.prot_pids[i]], self.labels[i]
 
 # ================================================================
-# Model: CoNCISE (pretrained backbone) with binary head
+# Model: CoNCISE from scratch with binary head
 # ================================================================
+from concise.model.concise import Concise
+
 class ConciseBinary(nn.Module):
-    """CoNCISE backbone → binary logit (BCEWithLogitsLoss)."""
+    """CoNCISE architecture trained from scratch → binary logit (BCEWithLogitsLoss)."""
     def __init__(self):
         super().__init__()
-        # Load pretrained CoNCISE and replace final head with binary classifier
-        self.backbone = torch.hub.load("rohitsinghlab/CoNCISE",
-                                        "pretrained_concise_v2", pretrained=True)
-        # Replace the cosine prediction final layer with a binary logit
-        # The backbone outputs binding score via cosine similarity
-        # We'll fine-tune the whole model with BCE loss
-        self.binary_head = nn.Sequential(
-            nn.Linear(1, 32),
-            nn.GELU(),
-            nn.Linear(32, 1),
+        # Build CoNCISE from scratch (random weights, NOT pretrained)
+        self.backbone = Concise(
+            drug_layers=[[32], [32], [32]],
+            ligand_dim=2048,
+            residue_dim=1280,  # Raygun dim
+            drug_dim=256,
+            proj_dim=256,
+            nheads=16,
+            activation="gelu",
+            cosine_prediction=False,
         )
-        nn.init.constant_(self.binary_head[-1].bias, 0.0)
+        # Replace final head with binary classifier
+        n_drug_codes = 3
+        fused_dim = n_drug_codes * 256 + 256
+        self.backbone.final = nn.Sequential(
+            nn.Linear(fused_dim, 512),
+            nn.GELU(),
+            nn.Dropout(0.2),
+            nn.Linear(512, 128),
+            nn.GELU(),
+            nn.Dropout(0.2),
+            nn.Linear(128, 1),
+        )
+        nn.init.constant_(self.backbone.final[-1].bias, 0.0)
 
     def forward(self, drug_fp, prot_emb):
         out = self.backbone(drug_fp, prot_emb, is_morgan_fingerprint=True)
-        binding = out["binding"].unsqueeze(-1)  # (B, 1)
-        return self.binary_head(binding).squeeze(-1)  # (B,)
+        return out["binding"]  # raw logit
 
 # ================================================================
 # Train
