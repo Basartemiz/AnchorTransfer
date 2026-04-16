@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Reproduce: Cross-dataset evaluation on LCIdb benchmark.
 #
-# Downloads LCIdb_v2.csv (~1.3GB) from Zenodo, removes all DTC training overlap
-# (protein + drug + pair), computes ESM-2 embeddings for novel proteins, then
-# evaluates V2-650M, V2-35M, DeepDTA, ESM-DTA on the clean LCIdb subset.
+# Evaluates CoNCISE (pretrained), ConciseAnchor (MooDeng binary checkpoint),
+# and Prot-kNN on LCIdb with zero MooDeng v1 training overlap.
+# Binary: pKi >= 7 positive, pKi <= 5 negative, ambiguous excluded.
 #
-# Requires: GPU, ~10GB disk, ~16GB RAM.
+# Requires: GPU, ~15GB disk, ~16GB RAM.
 #
 # Usage:
 #   bash reproduce/09_eval_lcidb.sh
@@ -33,12 +33,34 @@ if [[ ! -f "$LCIDB_PATH" ]]; then
     echo "  Done: $(wc -l < "$LCIDB_PATH") rows"
 fi
 
+# ── Download MooDeng v1 if needed ──
+MOODENG_V1="data/moodeng-v1"
+if [[ ! -f "$MOODENG_V1/train.csv" ]]; then
+    echo "Downloading MooDengDB v1..."
+    mkdir -p data
+    wget -q "https://zenodo.org/records/15368729/files/moodeng-v1.tar.gz" -O data/moodeng-v1.tar.gz
+    tar xzf data/moodeng-v1.tar.gz --no-same-owner -C data/
+    rm data/moodeng-v1.tar.gz
+    echo "  Done: $(wc -l < $MOODENG_V1/train.csv) train rows"
+fi
+
+# ── Check model checkpoint ──
+ANCHOR_CKPT="models/concise_anchor_moodeng/best_model.pt"
+if [[ ! -f "$ANCHOR_CKPT" ]]; then
+    echo "ERROR: ConciseAnchor MooDeng checkpoint not found at $ANCHOR_CKPT"
+    echo "Run 00_fetch_artifacts.sh first to download from Zenodo."
+    exit 1
+fi
+echo "ConciseAnchor checkpoint: $ANCHOR_CKPT"
+
 # ── Run evaluation ──
 echo "Running LCIdb evaluation..."
 PYTHONPATH="$REPO_ROOT/src${PYTHONPATH:+:$PYTHONPATH}" \
     "$REPRO_PYTHON" scripts/eval/eval_lcidb.py \
     --device "$DEVICE" \
+    --anchor-ckpt "$ANCHOR_CKPT" \
     --lcidb-path "$LCIDB_PATH" \
+    --moodeng-dir "$MOODENG_V1" \
     --results-dir results \
     2>&1 | tee results/lcidb_eval_results.txt
 

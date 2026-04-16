@@ -1,111 +1,319 @@
 #!/usr/bin/env python3
 """Cross-dataset evaluation on LCIdb benchmark.
 
-Evaluates anchor transfer models and baselines on LCIdb — a large-scale
-drug-target interaction dataset from ChEMBL/PubChem/BindingDB (via Consensus DB).
+Evaluates CoNCISE (pretrained), ConciseAnchor (MooDeng binary checkpoint),
+and Prot-kNN on LCIdb — a large-scale DTI dataset (ChEMBL/PubChem/BindingDB).
+
+Binary classification: pKi >= 7 → positive, pKi <= 5 → negative,
+ambiguous (5 < pKi < 7) excluded.
 
 Protocol:
-  1. Download and load LCIdb_v2.csv from Zenodo (record 12178118).
-  2. Remove ALL overlap with DTC training data:
-     - Protein overlap by UniProt sequence identity
-     - Drug overlap by canonical SMILES identity
-     - Interaction overlap (same drug+protein pair)
-  3. Filter to proteins with ESM-2 embeddings (extract if needed).
-  4. Retrieve Tanimoto anchors from DTC training pool (paper protocol).
-  5. Evaluate V2-650M, V2-35M, DeepDTA, ESM-DTA on the same anchored subset.
-  6. Report CI, AUROC, AUPRC, RMSE, Pearson r with quartile breakdown.
+  1. Download LCIdb_v2.csv from Zenodo.
+  2. Binarize: pKi >= 7 positive, pKi <= 5 negative, drop ambiguous.
+  3. Remove ALL overlap with MooDeng v1 training data (protein sequence + drug SMILES).
+  4. Compute Raygun embeddings + Morgan FPs for LCIdb proteins/drugs.
+  5. Build anchor pool from MooDeng v1 training positives.
+  6. Evaluate CoNCISE, ConciseAnchor, Prot-kNN on the same fair subset.
+  7. Report AUROC, AUPRC.
 
 Usage:
-  python scripts/eval/eval_lcidb.py [--device cuda] [--skip-esm2]
+  python scripts/eval/eval_lcidb.py --device cuda
 """
-import json, logging, os, random, sys, hashlib
+import argparse, hashlib, logging, os, pickle, sys
+import numpy as np
+import pandas as pd
+import torch
+import torch.nn as nn
 from pathlib import Path
-import numpy as np, pandas as pd, torch, torch.nn as nn, torch.nn.functional as F
-from scipy.stats import pearsonr
-from sklearn.metrics import roc_auc_score, average_precision_score
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
-log = logging.getLogger()
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+log = logging.getLogger(__name__)
 sys.path.insert(0, "src")
 
-SEED = 42
-random.seed(SEED); np.random.seed(SEED); torch.manual_seed(SEED)
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-PROJECT = Path(__file__).resolve().parents[2]
 
-# ── Character encodings (DeepDTA protocol) ──
-CHARISOSMISET = {
-    "#": 29, "%": 30, ")": 31, "(": 1, "+": 32, "-": 33, "/": 34, ".": 2,
-    "1": 35, "0": 3, "3": 36, "2": 4, "5": 37, "4": 5, "7": 38, "6": 6,
-    "9": 39, "8": 7, "=": 40, "A": 41, "@": 8, "C": 42, "B": 9, "E": 43,
-    "D": 10, "G": 44, "F": 11, "I": 45, "H": 12, "K": 46, "M": 47,
-    "L": 13, "O": 48, "N": 14, "P": 15, "S": 49, "R": 16, "[": 50,
-    "T": 17, "]": 51, "V": 18, "Y": 19, "c": 20, "e": 21, "l": 22,
-    "n": 23, "o": 24, "r": 25, "s": 26, "t": 27, "u": 28,
-}
-CHARPROTSET = {
-    "A": 1, "C": 2, "B": 3, "E": 4, "D": 5, "G": 6, "F": 7, "I": 8,
-    "H": 9, "K": 10, "M": 11, "L": 12, "O": 13, "N": 14, "Q": 15,
-    "P": 16, "S": 17, "R": 18, "U": 19, "T": 20, "W": 21, "V": 22,
-    "Y": 23, "X": 24, "Z": 25,
-}
-def encode_smi(smi, ml=100):
-    return [CHARISOSMISET.get(c, 0) for c in smi[:ml]] + [0] * max(0, ml - len(smi))
-def encode_prot(seq, ml=1000):
-    return [CHARPROTSET.get(c, 0) for c in seq[:ml]] + [0] * max(0, ml - len(seq))
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+def seq_to_id(seq: str) -> str:
+    return "P" + hashlib.md5(seq.encode()).hexdigest()[:12]
 
 
-# ── Metrics ──
-def ci_fn(yt, yp):
-    n = len(yt)
-    if n < 2: return 0.5
-    yt, yp = np.array(yt), np.array(yp)
-    if n*(n-1)//2 > 100000:
-        i = np.random.randint(0, n, 100000); j = np.random.randint(0, n, 100000)
-        m = i != j; i, j = i[m], j[m]
+def compute_raygun_embeddings(sequences: dict, device: torch.device,
+                              cache_path: Path, batch_label: str = "") -> dict:
+    if cache_path.exists():
+        cached = torch.load(str(cache_path), map_location="cpu", weights_only=False)
+        missing = {pid: seq for pid, seq in sequences.items() if pid not in cached}
+        if not missing:
+            log.info(f"  Loaded {len(cached)} cached Raygun embeddings from {cache_path.name}")
+            return cached
+        log.info(f"  Loaded {len(cached)} cached, {len(missing)} remaining")
     else:
-        idx = np.triu_indices(n, k=1); i, j = idx
-    dt = yt[i]-yt[j]; dp = yp[i]-yp[j]; t = dt == 0
-    return float(((dt*dp) > 0).sum() / (~t).sum()) if (~t).sum() > 0 else 0.5
+        cached = {}
+        missing = sequences
 
-def auroc_safe(t, p):
-    """AUROC with paper protocol: >=7 positive, <=5 negative, ambiguous excluded."""
-    b = t >= 7; nb = t <= 5; m = b | nb
-    if m.sum() == 0 or b[m].sum() == 0 or nb[m].sum() == 0: return float("nan")
-    return float(roc_auc_score(b[m].astype(int), p[m]))
+    if not missing:
+        return cached
 
-def auprc_safe(t, p):
-    b = t >= 7; nb = t <= 5; m = b | nb
-    if m.sum() == 0 or b[m].sum() == 0 or nb[m].sum() == 0: return float("nan")
-    return float(average_precision_score(b[m].astype(int), p[m]))
+    log.info(f"  Computing Raygun embeddings for {len(missing)} {batch_label} proteins...")
+    import esm
+    esm_model, alphabet = esm.pretrained.esm2_t33_650M_UR50D()
+    bc = alphabet.get_batch_converter()
+    esm_model = esm_model.eval().to(device)
+    raygun_model, _, _ = torch.hub.load("rohitsinghlab/raygun",
+                                         "pretrained_uniref50_95000_750M")
+    raygun_model = raygun_model.eval().to(device)
+
+    items = [(pid, seq[:1022].upper()) for pid, seq in missing.items() if len(seq) >= 25]
+    for idx, (pid, seq) in enumerate(items):
+        try:
+            _, _, toks = bc([(pid, seq)])
+            with torch.no_grad():
+                out = esm_model(toks.to(device), repr_layers=[33], return_contacts=False)
+                esm_emb = out["representations"][33][0, 1:len(seq)+1, :]
+                ray_out = raygun_model(esm_emb.unsqueeze(0))
+                cached[pid] = ray_out[1].squeeze(0).cpu()
+            del out, esm_emb, ray_out, toks
+        except Exception:
+            pass
+        if (idx + 1) % 200 == 0:
+            log.info(f"    {idx+1}/{len(items)} done")
+            torch.save(cached, str(cache_path))
+
+    del esm_model, raygun_model
+    torch.cuda.empty_cache()
+    torch.save(cached, str(cache_path))
+    log.info(f"  Saved {len(cached)} Raygun embeddings -> {cache_path.name}")
+    return cached
 
 
+def compute_morgan_fps(smiles_list, cache_path: Path, fp_dict: dict = None) -> dict:
+    if fp_dict is None:
+        fp_dict = {}
+    if cache_path.exists() and not fp_dict:
+        fp_dict = pickle.load(open(cache_path, "rb"))
+        log.info(f"  Loaded {len(fp_dict)} cached Morgan FPs from {cache_path.name}")
+
+    from rdkit import Chem
+    from rdkit.Chem import AllChem
+
+    new_count = 0
+    for smi in smiles_list:
+        if smi in fp_dict:
+            continue
+        try:
+            mol = Chem.MolFromSmiles(smi)
+            if mol:
+                fp_dict[smi] = np.array(
+                    AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=2048),
+                    dtype=np.float32)
+                new_count += 1
+        except Exception:
+            pass
+
+    if new_count > 0:
+        pickle.dump(fp_dict, open(cache_path, "wb"))
+        log.info(f"  Computed {new_count} new Morgan FPs (total: {len(fp_dict)})")
+    return fp_dict
+
+
+# ---------------------------------------------------------------------------
+# Model definition (matches MooDeng training)
+# ---------------------------------------------------------------------------
+from anchor_transfer.model.concise_anchor_bilinear import ConciseAnchorBilinear
+
+class ConciseAnchorBinary(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.backbone = ConciseAnchorBilinear(
+            ligand_dim=2048, residue_dim=1280, proj_dim=256,
+            n_codes=3, dropout=0.2)
+        nn.init.constant_(self.backbone.regressor[-1].bias, 0.0)
+
+    def forward(self, drug_fp, anchor_emb, query_emb):
+        return self.backbone(drug_fp, anchor_emb, query_emb)
+
+
+# ---------------------------------------------------------------------------
+# Prediction functions
+# ---------------------------------------------------------------------------
+BS = 1024
+
+
+def predict_concise(prot_ids, smiles_arr, emb_dict, fp_dict, model, device):
+    preds = np.full(len(prot_ids), np.nan)
+    with torch.no_grad():
+        for i in range(0, len(prot_ids), BS):
+            bp, bs = prot_ids[i:i+BS], smiles_arr[i:i+BS]
+            idx, fps, embs = [], [], []
+            for j, (pid, smi) in enumerate(zip(bp, bs)):
+                if pid in emb_dict and smi in fp_dict:
+                    idx.append(i+j); fps.append(fp_dict[smi]); embs.append(emb_dict[pid])
+            if not fps:
+                continue
+            pred = model(torch.tensor(np.array(fps)).to(device),
+                         torch.stack(embs).to(device),
+                         is_morgan_fingerprint=True)["binding"]
+            scores = ((pred + 1) / 2).cpu().numpy()
+            for j, ix in enumerate(idx):
+                preds[ix] = scores[j]
+            if (i + BS) % 100000 < BS:
+                log.info(f"    CoNCISE: {min(i+BS, len(prot_ids))}/{len(prot_ids)}")
+    return preds
+
+
+def predict_anchor(prot_ids, smiles_arr, emb_dict, fp_dict, model,
+                   drug_to_anchors, all_embs, device):
+    preds = np.full(len(prot_ids), np.nan)
+    with torch.no_grad():
+        for i in range(0, len(prot_ids), BS):
+            bp, bs = prot_ids[i:i+BS], smiles_arr[i:i+BS]
+            idx, fps, ancs, qrys = [], [], [], []
+            for j, (pid, smi) in enumerate(zip(bp, bs)):
+                if smi not in drug_to_anchors or smi not in fp_dict or pid not in emb_dict:
+                    continue
+                anc = None
+                for a in drug_to_anchors[smi]:
+                    if a != pid and a in all_embs:
+                        anc = a; break
+                if anc is None:
+                    continue
+                idx.append(i+j); fps.append(fp_dict[smi])
+                ancs.append(all_embs[anc]); qrys.append(emb_dict[pid])
+            if not fps:
+                continue
+            logit = model(torch.tensor(np.array(fps)).to(device),
+                          torch.stack(ancs).to(device),
+                          torch.stack(qrys).to(device))
+            scores = torch.sigmoid(logit).cpu().numpy()
+            for j, ix in enumerate(idx):
+                preds[ix] = scores[j]
+            if (i + BS) % 100000 < BS:
+                log.info(f"    Anchor: {min(i+BS, len(prot_ids))}/{len(prot_ids)}")
+    return preds
+
+
+def predict_knn(prot_ids, smiles_arr, emb_dict, fp_dict,
+                train_prot_normed, train_drug_fps, int_mat, device):
+    preds = np.full(len(prot_ids), np.nan)
+
+    unique_prots = list(set(prot_ids))
+    prot_embs = np.array([
+        emb_dict[p].mean(dim=0).numpy() if isinstance(emb_dict[p], torch.Tensor)
+        else emb_dict[p].mean(axis=0)
+        for p in unique_prots])
+    qn = prot_embs / (np.linalg.norm(prot_embs, axis=1, keepdims=True) + 1e-10)
+    ps = qn @ train_prot_normed.T
+    prot_topk = {}
+    for i, p in enumerate(unique_prots):
+        best = np.argmax(ps[i])
+        if ps[i, best] > 0:
+            prot_topk[p] = (best, ps[i, best])
+    log.info(f"    kNN: protein top-1 computed ({len(unique_prots)} proteins)")
+
+    unique_drugs = list(set(smiles_arr))
+    drug_fps_np = np.array([fp_dict[d] for d in unique_drugs if d in fp_dict])
+    valid_drugs = [d for d in unique_drugs if d in fp_dict]
+    drug_idx_map = {d: i for i, d in enumerate(valid_drugs)}
+
+    CHUNK = 4000
+    train_fps_gpu = torch.tensor(train_drug_fps, dtype=torch.float32).to(device)
+    train_bits = train_fps_gpu.sum(1)
+    ds = np.empty((len(valid_drugs), train_drug_fps.shape[0]), dtype=np.float32)
+    for ci in range(0, len(valid_drugs), CHUNK):
+        chunk = torch.tensor(drug_fps_np[ci:ci+CHUNK], dtype=torch.float32).to(device)
+        inter = chunk @ train_fps_gpu.T
+        q_bits = chunk.sum(1, keepdim=True)
+        tani = inter / torch.clamp(q_bits + train_bits.unsqueeze(0) - inter, min=1)
+        ds[ci:ci+CHUNK] = tani.cpu().numpy()
+    del train_fps_gpu
+    torch.cuda.empty_cache()
+    log.info(f"    kNN: drug Tanimoto computed ({len(valid_drugs)} drugs)")
+
+    for i in range(len(prot_ids)):
+        pid, smi = prot_ids[i], smiles_arr[i]
+        if pid not in prot_topk or smi not in drug_idx_map:
+            continue
+        best_pi, best_psim = prot_topk[pid]
+        bound_mask = int_mat[:, best_pi] > 0
+        if not bound_mask.any():
+            continue
+        di = drug_idx_map[smi]
+        max_sim = ds[di, bound_mask].max()
+        if max_sim > 0:
+            preds[i] = max_sim * best_psim
+    return preds
+
+
+# ---------------------------------------------------------------------------
+# Fair evaluation
+# ---------------------------------------------------------------------------
+def evaluate_fair(name, prot_ids, smiles_arr, labels, preds_dict):
+    from sklearn.metrics import roc_auc_score, average_precision_score
+
+    fair = np.ones(len(labels), dtype=bool)
+    for preds in preds_dict.values():
+        fair &= ~np.isnan(preds)
+    n_fair = fair.sum()
+
+    print(f"\n{'='*65}", flush=True)
+    print(f"  {name}")
+    print(f"  Fair subset: {n_fair:,} interactions, "
+          f"{len(np.unique(prot_ids[fair])):,} proteins")
+    print(f"  {int(labels[fair].sum()):,} pos, "
+          f"{int((1-labels[fair]).sum()):,} neg "
+          f"(1:{(1-labels[fair]).sum()/max(labels[fair].sum(),1):.1f})")
+    print(f"{'='*65}")
+    print(f"  {'Method':<22s} {'AUROC':>8s} {'AUPRC':>8s}")
+    print(f"  {'-'*42}", flush=True)
+
+    if n_fair < 10 or len(set(labels[fair].astype(int))) < 2:
+        print(f"  Too few interactions or single class in fair subset")
+        return
+
+    for mname, preds in preds_dict.items():
+        auroc = roc_auc_score(labels[fair], preds[fair])
+        auprc = average_precision_score(labels[fair], preds[fair])
+        print(f"  {mname:<22s} {auroc:8.4f} {auprc:8.4f}")
+    print(f"  {'-'*42}", flush=True)
+
+    print(f"\n  {'Method':<22s} {'AUROC':>8s} {'AUPRC':>8s} {'Coverage':>12s}")
+    print(f"  {'-'*55}")
+    for mname, preds in preds_dict.items():
+        valid = ~np.isnan(preds)
+        if valid.sum() < 10 or len(set(labels[valid].astype(int))) < 2:
+            print(f"  {mname:<22s}  insufficient coverage ({valid.sum()})")
+            continue
+        auroc = roc_auc_score(labels[valid], preds[valid])
+        auprc = average_precision_score(labels[valid], preds[valid])
+        print(f"  {mname:<22s} {auroc:8.4f} {auprc:8.4f} "
+              f"{valid.sum():>6,}/{len(labels):,}")
+    print(f"  {'-'*55}")
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 def main():
-    import argparse
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="LCIdb evaluation")
     parser.add_argument("--device", default="cuda")
-    parser.add_argument("--skip-esm2", action="store_true",
-                        help="Skip ESM-2 extraction (use precomputed)")
-    parser.add_argument("--lcidb-path", default=None,
-                        help="Path to LCIdb_v2.csv (auto-downloads if missing)")
+    parser.add_argument("--anchor-ckpt", required=True,
+                        help="Path to ConciseAnchor binary checkpoint (MooDeng)")
+    parser.add_argument("--lcidb-path", default="data/LCIdb_v2.csv")
+    parser.add_argument("--moodeng-dir", default="data/moodeng-v1",
+                        help="MooDeng v1 directory (for training data / anchor pool)")
     parser.add_argument("--results-dir", default="results")
     args = parser.parse_args()
 
-    global device
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     results_dir = Path(args.results_dir)
     results_dir.mkdir(exist_ok=True)
+    moodeng = Path(args.moodeng_dir)
 
-    # ================================================================
-    # Step 1: Download / Load LCIdb
-    # ================================================================
-    log.info("=" * 60)
-    log.info("Step 1: Loading LCIdb")
-    log.info("=" * 60)
-
-    lcidb_path = Path(args.lcidb_path) if args.lcidb_path else PROJECT / "data" / "LCIdb_v2.csv"
+    # ── 1. Load LCIdb ──
+    log.info("Step 1/7: Loading LCIdb...")
+    lcidb_path = Path(args.lcidb_path)
     if not lcidb_path.exists():
-        log.info(f"Downloading LCIdb_v2.csv to {lcidb_path}...")
+        log.info(f"Downloading LCIdb_v2.csv...")
         lcidb_path.parent.mkdir(parents=True, exist_ok=True)
         import subprocess
         subprocess.run([
@@ -114,464 +322,156 @@ def main():
         ], check=True)
 
     lci = pd.read_csv(lcidb_path, low_memory=False)
-    log.info(f"LCIdb raw: {len(lci)} interactions, {lci['fasta'].nunique()} proteins, "
+    log.info(f"  LCIdb raw: {len(lci)} interactions, {lci['fasta'].nunique()} proteins, "
              f"{lci['smiles'].nunique()} drugs")
 
     # Use mean pKi where available, fall back to mean pIC50, then score
     lci["pki"] = lci["mean pKi"]
-    mask_no_pki = lci["pki"].isna()
-    lci.loc[mask_no_pki, "pki"] = lci.loc[mask_no_pki, "mean pIC50"]
-    mask_still_na = lci["pki"].isna()
-    lci.loc[mask_still_na, "pki"] = lci.loc[mask_still_na, "score"]
+    mask_no = lci["pki"].isna()
+    lci.loc[mask_no, "pki"] = lci.loc[mask_no, "mean pIC50"]
+    mask_no2 = lci["pki"].isna()
+    lci.loc[mask_no2, "pki"] = lci.loc[mask_no2, "score"]
     lci = lci.dropna(subset=["pki"])
-    lci = lci[lci["pki"] > 0]  # remove zero/negative
-    log.info(f"LCIdb with valid pKi: {len(lci)} interactions")
+    lci = lci[lci["pki"] > 0]
 
-    # Rename columns for consistency
-    lci = lci.rename(columns={"smiles": "ligand_smiles", "fasta": "protein_sequence"})
+    # Binarize: pKi >= 7 positive, pKi <= 5 negative, drop ambiguous
+    lci_pos = lci[lci["pki"] >= 7].copy()
+    lci_neg = lci[lci["pki"] <= 5].copy()
+    lci_pos["label"] = 1.0
+    lci_neg["label"] = 0.0
+    lci_bin = pd.concat([lci_pos, lci_neg], ignore_index=True)
+    lci_bin.rename(columns={"smiles": "smiles", "fasta": "sequence"}, inplace=True)
+    lci_bin["prot_id"] = lci_bin["sequence"].apply(seq_to_id)
+    log.info(f"  After binarization: {len(lci_bin)} interactions "
+             f"({(lci_bin.label==1).sum()} pos, {(lci_bin.label==0).sum()} neg), "
+             f"dropped {len(lci) - len(lci_bin)} ambiguous (5 < pKi < 7)")
 
-    # Create protein IDs from sequence hash (LCIdb uses UniProt but sequences are more reliable)
-    def seq_to_id(seq):
-        return "L" + hashlib.md5(str(seq).encode()).hexdigest()[:12]
-    lci["protein_id"] = lci["protein_sequence"].apply(seq_to_id)
+    # ── 2. Load MooDeng v1 training data and remove overlap ──
+    log.info("Step 2/7: Removing MooDeng v1 training overlap...")
+    train_raw = pd.read_csv(moodeng / "train.csv", low_memory=False)
+    train_raw.rename(columns={"Target Sequence": "sequence",
+                               "SMILES": "smiles", "Label": "label"}, inplace=True)
+    train_raw["prot_id"] = train_raw.sequence.apply(seq_to_id)
 
-    log.info(f"LCIdb final: {len(lci)} interactions, {lci.protein_id.nunique()} proteins, "
-             f"{lci.ligand_smiles.nunique()} drugs")
-    log.info(f"  pKi range: [{lci.pki.min():.1f}, {lci.pki.max():.1f}], "
-             f"mean={lci.pki.mean():.2f}, median={lci.pki.median():.2f}")
+    train_seqs = set(train_raw.sequence.unique())
+    train_drugs = set(train_raw.smiles.unique())
 
-    # ================================================================
-    # Step 2: Load DTC training data and remove ALL overlap
-    # ================================================================
-    log.info("=" * 60)
-    log.info("Step 2: Removing DTC training overlap")
-    log.info("=" * 60)
+    before = len(lci_bin)
+    # Remove protein overlap
+    lci_bin = lci_bin[~lci_bin.sequence.isin(train_seqs)].copy()
+    removed_prot = before - len(lci_bin)
+    # Remove drug overlap
+    before2 = len(lci_bin)
+    lci_bin = lci_bin[~lci_bin.smiles.isin(train_drugs)].copy()
+    removed_drug = before2 - len(lci_bin)
 
-    dtc = pd.read_csv(PROJECT / "data/processed/dtc_training_interactions.csv")
-    seqs = json.load(open(PROJECT / "data/processed/merged_sequences.json"))
+    log.info(f"  Removed {removed_prot} by protein overlap, {removed_drug} by drug overlap")
+    log.info(f"  LCIdb clean: {len(lci_bin)} interactions "
+             f"({lci_bin.prot_id.nunique()} proteins, {lci_bin.smiles.nunique()} drugs)")
+    log.info(f"  {(lci_bin.label==1).sum()} pos, {(lci_bin.label==0).sum()} neg")
 
-    # Recreate DTC 80/10/10 protein split (same as paper)
-    esm35 = torch.load(PROJECT / "data/processed/esm2_35m_dtc.pt",
-                        map_location="cpu", weights_only=False)
-    esm650 = torch.load(PROJECT / "data/processed/esm2_650m_dtc.pt",
-                         map_location="cpu", weights_only=False)
-    esm35 = {k: v for k, v in esm35.items() if torch.isfinite(v).all()}
-    esm650 = {k: v for k, v in esm650.items() if torch.isfinite(v).all()}
-
-    dtc_valid = dtc[dtc.uniprot_id.isin(esm35)]
-    all_prots = sorted(set(dtc_valid.uniprot_id) & set(esm35.keys()))
-    rng = random.Random(SEED)
-    rng.shuffle(all_prots)
-    nt = max(1, int(len(all_prots) * 0.1))
-    nv = max(1, int(len(all_prots) * 0.1))
-    train_prots = set(all_prots[nt + nv:])
-    dtc_train = dtc_valid[dtc_valid.uniprot_id.isin(train_prots)]
-    log.info(f"DTC train split: {len(dtc_train)} interactions, {len(train_prots)} proteins")
-
-    # Build DTC training sequences and canonical SMILES
-    dtc_train_seqs = set()
-    for uid in train_prots:
-        if uid in seqs:
-            dtc_train_seqs.add(seqs[uid])
-
-    try:
-        from rdkit import Chem, DataStructs
-        from rdkit.Chem import AllChem
-        from rdkit import RDLogger
-        RDLogger.DisableLog("rdApp.*")
-    except ImportError:
-        raise SystemExit("RDKit required")
-
-    def canonicalize(smi):
-        mol = Chem.MolFromSmiles(smi)
-        return Chem.MolToSmiles(mol, canonical=True) if mol else None
-
-    def smiles_to_fp(smi):
-        mol = Chem.MolFromSmiles(smi)
-        if mol is None: return None
-        return AllChem.GetMorganFingerprintAsBitVect(mol, radius=2, nBits=2048, useChirality=True)
-
-    dtc_train_canonical = set()
-    for smi in dtc_train.ligand_smiles.unique():
-        c = canonicalize(smi)
-        if c: dtc_train_canonical.add(c)
-    log.info(f"DTC train: {len(dtc_train_seqs)} unique sequences, "
-             f"{len(dtc_train_canonical)} unique canonical SMILES")
-
-    # Remove overlap
-    before = len(lci)
-
-    # 2a. Protein sequence overlap
-    lci_no_prot = lci[~lci.protein_sequence.isin(dtc_train_seqs)].copy()
-    removed_prot = before - len(lci_no_prot)
-    log.info(f"  Removed {removed_prot} interactions by protein sequence overlap "
-             f"({before - len(lci_no_prot)} interactions, "
-             f"{lci.protein_id.nunique() - lci_no_prot.protein_id.nunique()} proteins)")
-
-    # 2b. Drug canonical SMILES overlap
-    lci_canonical = {}
-    for smi in lci_no_prot.ligand_smiles.unique():
-        c = canonicalize(smi)
-        if c: lci_canonical[smi] = c
-
-    lci_no_prot["canonical"] = lci_no_prot.ligand_smiles.map(lci_canonical)
-    lci_clean = lci_no_prot[~lci_no_prot.canonical.isin(dtc_train_canonical)].copy()
-    removed_drug = len(lci_no_prot) - len(lci_clean)
-    log.info(f"  Removed {removed_drug} interactions by drug canonical SMILES overlap")
-
-    log.info(f"LCIdb after overlap removal: {len(lci_clean)} interactions "
-             f"({lci_clean.protein_id.nunique()} proteins, "
-             f"{lci_clean.ligand_smiles.nunique()} drugs)")
-    log.info(f"  Total removed: {before - len(lci_clean)} ({100*(before-len(lci_clean))/before:.1f}%)")
-
-    if len(lci_clean) < 100:
+    if len(lci_bin) < 100:
         log.error("Too few interactions after overlap removal!")
         return
 
-    # ================================================================
-    # Step 3: Compute ESM-2 embeddings for LCIdb proteins
-    # ================================================================
-    log.info("=" * 60)
-    log.info("Step 3: ESM-2 embeddings for LCIdb proteins")
-    log.info("=" * 60)
+    # ── 3. Compute Raygun embeddings + Morgan FPs ──
+    log.info("Step 3/7: Raygun embeddings for LCIdb proteins...")
+    all_seqs = {}
+    for df in [train_raw, lci_bin]:
+        for _, r in df.drop_duplicates("prot_id").iterrows():
+            all_seqs[r.prot_id] = r.sequence
 
-    lci_esm35_path = results_dir / "esm2_35m_lcidb.pt"
-    lci_esm650_path = results_dir / "esm2_650m_lcidb.pt"
+    raygun_cache = results_dir / "raygun_lcidb_embeddings.pt"
+    raygun_embs = compute_raygun_embeddings(all_seqs, device, raygun_cache,
+                                            batch_label="LCIdb+MooDeng")
 
-    # Unique proteins needing embeddings
-    lci_prot_seqs = {}
-    for _, r in lci_clean.drop_duplicates("protein_id").iterrows():
-        lci_prot_seqs[r.protein_id] = r.protein_sequence
+    log.info("Step 3/7: Morgan fingerprints...")
+    fp_cache = results_dir / "morgan_lcidb_fp.pkl"
+    all_smiles = list(set(train_raw.smiles.unique()) | set(lci_bin.smiles.unique()))
+    fp_dict = compute_morgan_fps(all_smiles, fp_cache)
 
-    if not args.skip_esm2:
-        for model_name, dim, cache_path in [
-            ("esm2_t6_8M_UR50D", 320, None),  # skip 8M
-            ("esm2_t12_35M_UR50D", 480, lci_esm35_path),
-            ("esm2_t33_650M_UR50D", 1280, lci_esm650_path),
-        ]:
-            if cache_path is None: continue
-            if cache_path.exists():
-                existing = torch.load(str(cache_path), map_location="cpu", weights_only=False)
-                missing = {pid: seq for pid, seq in lci_prot_seqs.items() if pid not in existing}
-                if not missing:
-                    log.info(f"  {model_name}: {len(existing)} cached, 0 missing — skipping")
-                    continue
-                log.info(f"  {model_name}: {len(existing)} cached, {len(missing)} to compute")
-            else:
-                existing = {}
-                missing = lci_prot_seqs
+    # Filter to available
+    lci_eval = lci_bin.loc[
+        lci_bin.prot_id.isin(raygun_embs) & lci_bin.smiles.isin(fp_dict),
+        ["prot_id", "smiles", "label", "sequence"]].copy()
+    log.info(f"  Filtered to available: {len(lci_eval)} interactions")
 
-            log.info(f"  Computing {model_name} for {len(missing)} proteins...")
-            import esm
-            model_fn = getattr(esm.pretrained, model_name)
-            esm_model, alphabet = model_fn()
-            bc = alphabet.get_batch_converter()
-            esm_model = esm_model.eval().to(device)
-            repr_layer = {"esm2_t12_35M_UR50D": 12, "esm2_t33_650M_UR50D": 33}[model_name]
+    # ── 4. Build anchor pool from MooDeng v1 training positives ──
+    log.info("Step 4/7: Building anchor pool from MooDeng training...")
+    train_pos = train_raw[train_raw.label == 1]
+    train_filt = train_pos[
+        train_pos.prot_id.isin(raygun_embs) & train_pos.smiles.isin(fp_dict)]
 
-            for idx, (pid, seq) in enumerate(missing.items()):
-                try:
-                    _, _, toks = bc([(pid, seq[:1022])])
-                    with torch.no_grad():
-                        out = esm_model(toks.to(device), repr_layers=[repr_layer],
-                                        return_contacts=False)
-                        emb = out["representations"][repr_layer][0, 1:len(seq[:1022])+1, :].mean(0)
-                        existing[pid] = emb.cpu()
-                except Exception as e:
-                    log.warning(f"  Failed {pid}: {e}")
-                if (idx + 1) % 100 == 0:
-                    log.info(f"    {idx+1}/{len(missing)}")
-                    torch.save(existing, str(cache_path))
+    drug_to_anchors = {}
+    for smi, grp in train_filt.groupby("smiles"):
+        anchors = [pid for pid in grp.prot_id.values if pid in raygun_embs]
+        if anchors:
+            drug_to_anchors[smi] = anchors
+    log.info(f"  Anchors: {len(drug_to_anchors)} drugs with known binders")
 
-            torch.save(existing, str(cache_path))
-            del esm_model
-            torch.cuda.empty_cache()
-            log.info(f"  Saved {len(existing)} embeddings → {cache_path.name}")
+    # kNN structures
+    train_prot_ids = sorted(set(train_filt.prot_id) & set(raygun_embs.keys()))
+    train_prot_embs = np.array([raygun_embs[p].mean(dim=0).numpy()
+                                 for p in train_prot_ids])
+    train_prot_normed = train_prot_embs / (
+        np.linalg.norm(train_prot_embs, axis=1, keepdims=True) + 1e-10)
 
-    # Load embeddings
-    lci_esm35 = torch.load(str(lci_esm35_path), map_location="cpu", weights_only=False) if lci_esm35_path.exists() else {}
-    lci_esm650 = torch.load(str(lci_esm650_path), map_location="cpu", weights_only=False) if lci_esm650_path.exists() else {}
+    train_drug_ids = sorted(set(train_filt.smiles) & set(fp_dict.keys()))
+    train_drug_fps = np.array([fp_dict[d] for d in train_drug_ids])
+    train_drug_idx = {d: i for i, d in enumerate(train_drug_ids)}
+    train_prot_idx = {p: i for i, p in enumerate(train_prot_ids)}
 
-    # Merge with DTC embeddings (for anchor lookup)
-    all_esm35 = {**esm35, **lci_esm35}
-    all_esm650 = {**esm650, **lci_esm650}
+    int_mat = np.zeros((len(train_drug_ids), len(train_prot_ids)), dtype=np.float32)
+    for _, r in train_filt.iterrows():
+        di = train_drug_idx.get(r.smiles, -1)
+        pi = train_prot_idx.get(r.prot_id, -1)
+        if di >= 0 and pi >= 0:
+            int_mat[di, pi] = 1.0
+    log.info(f"  Interaction matrix: {int_mat.shape}, nnz={np.count_nonzero(int_mat)}")
 
-    # Filter to proteins with both embeddings
-    valid_prots = set(lci_esm35.keys()) & set(lci_esm650.keys())
-    lci_eval = lci_clean[lci_clean.protein_id.isin(valid_prots)].copy()
-    log.info(f"LCIdb with ESM-2 embeddings: {len(lci_eval)} interactions, "
-             f"{lci_eval.protein_id.nunique()} proteins")
+    del train_raw, train_pos, train_filt
+    import gc; gc.collect()
 
-    # ================================================================
-    # Step 4: Build Tanimoto anchor pool and retrieve anchors
-    # ================================================================
-    log.info("=" * 60)
-    log.info("Step 4: Tanimoto anchor retrieval from DTC")
-    log.info("=" * 60)
+    # ── 5. Load models ──
+    log.info("Step 5/7: Loading models...")
+    concise_model = torch.hub.load("rohitsinghlab/CoNCISE",
+                                    "pretrained_concise_v2", pretrained=True)
+    concise_model = concise_model.eval().to(device)
+    log.info(f"  CoNCISE loaded (pretrained_concise_v2)")
 
-    # Build anchor pool from DTC training set (pKi >= 7, no LCIdb canonical overlap)
-    lci_canonical_set = set(lci_clean.canonical.dropna().unique())
+    anchor_model = ConciseAnchorBinary().to(device)
+    ckpt = torch.load(args.anchor_ckpt, map_location=device, weights_only=False)
+    anchor_model.load_state_dict(ckpt["model_state_dict"])
+    anchor_model.eval()
+    log.info(f"  ConciseAnchor loaded from {args.anchor_ckpt} "
+             f"(epoch {ckpt.get('epoch', '?')})")
 
-    anchor_pool = {}
-    for smi, group in dtc_train.groupby("ligand_smiles"):
-        best = group.sort_values("pki", ascending=False).iloc[0]
-        uid, pki = best["uniprot_id"], float(best["pki"])
-        if pki < 7.0 or uid not in all_esm35: continue
-        c = canonicalize(smi)
-        if c and c in lci_canonical_set: continue  # exclude drugs also in LCIdb
-        fp = smiles_to_fp(smi)
-        if fp is None: continue
-        anchor_pool[smi] = {"uid": uid, "pki": pki, "canonical": c, "fp": fp}
-    log.info(f"Anchor pool (after LCIdb drug exclusion): {len(anchor_pool)} drugs")
+    # ── 6. Predict ──
+    log.info("Step 6/7: Predictions on LCIdb...")
+    pids = lci_eval.prot_id.values
+    smis = lci_eval.smiles.values
+    labels = lci_eval.label.values.astype(float)
 
-    # Compute fingerprints for LCIdb drugs
-    lci_drug_fps = {}
-    for smi in lci_eval.ligand_smiles.unique():
-        fp = smiles_to_fp(smi)
-        if fp: lci_drug_fps[smi] = fp
-    log.info(f"LCIdb drug fingerprints: {len(lci_drug_fps)}")
+    p_concise = predict_concise(pids, smis, raygun_embs, fp_dict,
+                                concise_model, device)
+    del concise_model; torch.cuda.empty_cache()
 
-    # Tanimoto nearest-neighbor
-    anchor_fps = [(smi, meta["fp"], meta) for smi, meta in anchor_pool.items()]
-    nearest = {}
-    for idx, (lci_smi, lci_fp) in enumerate(lci_drug_fps.items()):
-        best_sim, best_meta, best_smi = -1, None, None
-        for a_smi, a_fp, a_meta in anchor_fps:
-            sim = DataStructs.TanimotoSimilarity(lci_fp, a_fp)
-            if sim > best_sim:
-                best_sim, best_meta, best_smi = sim, a_meta, a_smi
-        if best_meta:
-            nearest[lci_smi] = {"anchor_uid": best_meta["uid"], "anchor_pki": best_meta["pki"],
-                                "tanimoto": best_sim, "anchor_drug": best_smi}
-        if (idx + 1) % 1000 == 0:
-            log.info(f"  Tanimoto search: {idx+1}/{len(lci_drug_fps)}")
-    log.info(f"Tanimoto anchors: {len(nearest)}/{len(lci_drug_fps)} LCIdb drugs matched")
+    p_anchor = predict_anchor(pids, smis, raygun_embs, fp_dict,
+                              anchor_model, drug_to_anchors, raygun_embs, device)
+    del anchor_model; torch.cuda.empty_cache()
 
-    # Build self-anchor exclusion (sequence-based)
-    lci_seq_set = set(lci_eval.protein_sequence.unique())
+    p_knn = predict_knn(pids, smis, raygun_embs, fp_dict,
+                        train_prot_normed, train_drug_fps, int_mat, device)
 
-    # Build anchored subset
-    rows, anc_uids, anc_pkis, tanimotos = [], [], [], []
-    for i, row in lci_eval.iterrows():
-        smi = row["ligand_smiles"]
-        if smi not in nearest: continue
-        match = nearest[smi]
-        au = match["anchor_uid"]
-        # Self-anchor exclusion: skip if anchor protein sequence matches LCIdb protein
-        if au in seqs and seqs[au] == row["protein_sequence"]:
-            continue
-        if au not in all_esm35 or au not in all_esm650: continue
-        rows.append(i)
-        anc_uids.append(au)
-        anc_pkis.append(match["anchor_pki"])
-        tanimotos.append(match["tanimoto"])
+    # ── 7. Report ──
+    log.info("Step 7/7: Results")
+    evaluate_fair("LCIdb Benchmark (pKi>=7 pos, pKi<=5 neg, zero MooDeng overlap)",
+                  pids, smis, labels,
+                  {"CoNCISE (pretrained)": p_concise,
+                   "ConciseAnchor": p_anchor,
+                   "Prot-kNN k=1": p_knn})
 
-    subset = lci_eval.loc[rows].copy()
-    subset["anchor_uid"] = anc_uids
-    subset["anchor_pki"] = anc_pkis
-    subset["tanimoto"] = tanimotos
-    log.info(f"Anchored subset: {len(subset)} interactions, "
-             f"{subset.protein_id.nunique()} proteins, {subset.ligand_smiles.nunique()} drugs")
-    log.info(f"  Tanimoto mean={np.mean(tanimotos):.3f}, median={np.median(tanimotos):.3f}")
-
-    # ================================================================
-    # Step 5: Load models
-    # ================================================================
-    log.info("=" * 60)
-    log.info("Step 5: Loading models")
-    log.info("=" * 60)
-
-    from anchor_transfer.model.anchor_transfer_v2 import AnchorTransferDTAv2
-    from anchor_transfer.model.esm_dta import EsmDTAModel
-
-    models = {}
-
-    # V2-650M
-    p = PROJECT / "models/v2_650m/best_model.pt"
-    if p.exists():
-        m = AnchorTransferDTAv2(esm2_dim=1280).to(device)
-        m.load_state_dict(torch.load(p, map_location=device, weights_only=False)["model_state_dict"])
-        m.eval(); models["V2-650M"] = m; log.info("  Loaded V2-650M")
-
-    # V2-35M
-    p = PROJECT / "models/v2_35m/best_model.pt"
-    if p.exists():
-        m = AnchorTransferDTAv2(esm2_dim=480).to(device)
-        m.load_state_dict(torch.load(p, map_location=device, weights_only=False)["model_state_dict"])
-        m.eval(); models["V2-35M"] = m; log.info("  Loaded V2-35M")
-
-    # DeepDTA
-    class DeepDTAModel(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.smiles_embed = nn.Embedding(66, 128, padding_idx=0)
-            self.protein_embed = nn.Embedding(26, 128, padding_idx=0)
-            self.sc1 = nn.Conv1d(128, 32, 8); self.sc2 = nn.Conv1d(32, 64, 8); self.sc3 = nn.Conv1d(64, 96, 8)
-            self.pc1 = nn.Conv1d(128, 32, 8); self.pc2 = nn.Conv1d(32, 64, 8); self.pc3 = nn.Conv1d(64, 96, 8)
-            self.fc1 = nn.Linear(192, 1024); self.fc2 = nn.Linear(1024, 1024)
-            self.fc3 = nn.Linear(1024, 512); self.out = nn.Linear(512, 1); self.do = nn.Dropout(0.1)
-        def forward(self, s, p):
-            s = self.smiles_embed(s).permute(0, 2, 1)
-            s = F.relu(self.sc1(s)); s = F.relu(self.sc2(s)); s = F.relu(self.sc3(s)); s = s.max(2)[0]
-            p = self.protein_embed(p).permute(0, 2, 1)
-            p = F.relu(self.pc1(p)); p = F.relu(self.pc2(p)); p = p.max(2)[0]
-            x = torch.cat([s, p], 1)
-            x = self.do(F.relu(self.fc1(x))); x = self.do(F.relu(self.fc2(x)))
-            x = self.do(F.relu(self.fc3(x))); return self.out(x).squeeze(-1)
-
-    p = PROJECT / "models/deepdta_dtc/best_model.pt"
-    if p.exists():
-        m = DeepDTAModel().to(device)
-        m.load_state_dict(torch.load(p, map_location=device, weights_only=False)["model_state_dict"])
-        m.eval(); models["DeepDTA"] = m; log.info("  Loaded DeepDTA")
-
-    # ESM-DTA
-    p = PROJECT / "models/esm_dta_dtc/best_model.pt"
-    if p.exists():
-        m = EsmDTAModel(esm2_dim=480).to(device)
-        m.load_state_dict(torch.load(p, map_location=device, weights_only=False)["model_state_dict"])
-        m.eval(); models["ESM-DTA"] = m; log.info("  Loaded ESM-DTA")
-
-    log.info(f"  Models: {list(models.keys())}")
-
-    # ================================================================
-    # Step 6: Predict on anchored subset
-    # ================================================================
-    log.info("=" * 60)
-    log.info("Step 6: Inference on anchored subset")
-    log.info("=" * 60)
-
-    BS = 512
-    all_preds = {m: [] for m in models}
-
-    for start in range(0, len(subset), BS):
-        batch = subset.iloc[start:start+BS]
-        pids = batch.protein_id.values
-        smis = batch.ligand_smiles.values
-        seqs_batch = batch.protein_sequence.values
-        ancs = batch.anchor_uid.values
-
-        dt = torch.tensor([encode_smi(s) for s in smis], dtype=torch.long, device=device)
-
-        with torch.no_grad():
-            if "V2-650M" in models:
-                a650 = torch.stack([all_esm650[a] for a in ancs]).to(device)
-                q650 = torch.stack([lci_esm650[p] for p in pids]).to(device)
-                pred = models["V2-650M"](a650, q650, dt)["pki_pred"].cpu().tolist()
-                all_preds["V2-650M"].extend(pred)
-
-            if "V2-35M" in models:
-                a35 = torch.stack([all_esm35[a] for a in ancs]).to(device)
-                q35 = torch.stack([lci_esm35[p] for p in pids]).to(device)
-                pred = models["V2-35M"](a35, q35, dt)["pki_pred"].cpu().tolist()
-                all_preds["V2-35M"].extend(pred)
-
-            if "DeepDTA" in models:
-                dp = torch.tensor([encode_prot(s) for s in seqs_batch], dtype=torch.long, device=device)
-                pred = models["DeepDTA"](dt, dp).cpu().tolist()
-                all_preds["DeepDTA"].extend(pred)
-
-            if "ESM-DTA" in models:
-                e35 = torch.stack([lci_esm35[p] for p in pids]).to(device)
-                pred = models["ESM-DTA"](dt, e35).cpu().tolist()
-                all_preds["ESM-DTA"].extend(pred)
-
-        if (start + BS) % 10000 < BS:
-            log.info(f"  {min(start+BS, len(subset))}/{len(subset)}")
-
-    # ================================================================
-    # Step 7: Evaluate and report
-    # ================================================================
-    log.info("=" * 60)
-    log.info("Step 7: Results")
-    log.info("=" * 60)
-
-    true = subset.pki.values
-    model_order = [m for m in ["V2-650M", "V2-35M", "DeepDTA", "ESM-DTA"] if m in models]
-
-    print(f"\n{'='*90}")
-    print(f"  LCIdb Cross-Dataset Evaluation (DTC → LCIdb, Tanimoto anchors)")
-    print(f"  {len(subset)} interactions, {subset.protein_id.nunique()} proteins, "
-          f"{subset.ligand_smiles.nunique()} drugs")
-    print(f"  Zero overlap with DTC training (protein + drug + pair excluded)")
-    print(f"{'='*90}")
-
-    header = f"  {'Metric':<20s} {'N':>7s}"
-    for m in model_order:
-        header += f"  {m:>12s}"
-    print(header)
-    print(f"  {'-'*len(header)}")
-
-    for metric_name, metric_fn in [
-        ("CI", lambda t, p: ci_fn(t, p)),
-        ("AUROC", lambda t, p: auroc_safe(t, p)),
-        ("AUPRC", lambda t, p: auprc_safe(t, p)),
-        ("RMSE", lambda t, p: float(np.sqrt(np.mean((t - p)**2)))),
-        ("Pearson r", lambda t, p: float(pearsonr(t, p)[0]) if len(t) > 2 else float("nan")),
-    ]:
-        line = f"  {metric_name:<20s} {len(true):>7d}"
-        for m in model_order:
-            pred = np.array(all_preds[m])
-            val = metric_fn(true, pred)
-            line += f"  {val:>12.4f}"
-        print(line)
-
-    # Per-protein macro-averaged CI
-    per_prot_cis = {m: [] for m in model_order}
-    for pid in subset.protein_id.unique():
-        mask = subset.protein_id.values == pid
-        if mask.sum() < 2: continue
-        t = true[mask]
-        for m in model_order:
-            p = np.array(all_preds[m])[mask]
-            per_prot_cis[m].append(ci_fn(t, p))
-
-    line = f"  {'CI (macro)':<20s} {len(per_prot_cis[model_order[0]]):>7d}"
-    for m in model_order:
-        line += f"  {np.mean(per_prot_cis[m]):>12.4f}"
-    print(line)
-    print(f"  {'-'*len(header)}")
-
-    # ── Anchor pKi quartile breakdown ──
-    print(f"\n  Anchor pKi Quartile Breakdown (CI):")
-    q_edges = np.quantile(subset.anchor_pki.values, [0, 0.25, 0.5, 0.75, 1.0])
-    for qi in range(4):
-        lo, hi = q_edges[qi], q_edges[qi+1]
-        if qi < 3:
-            mask = (subset.anchor_pki.values >= lo) & (subset.anchor_pki.values < hi)
-        else:
-            mask = (subset.anchor_pki.values >= lo) & (subset.anchor_pki.values <= hi)
-        if mask.sum() < 10: continue
-        line = f"  Q{qi+1} [{lo:.1f}-{hi:.1f}] {mask.sum():>7d}"
-        for m in model_order:
-            p = np.array(all_preds[m])[mask]
-            val = ci_fn(true[mask], p)
-            line += f"  {val:>12.4f}"
-        print(line)
-
-    # ── Tanimoto similarity bin breakdown ──
-    print(f"\n  Tanimoto Similarity Bin Breakdown (CI):")
-    for lo, hi, label in [(0, 0.3, "<0.3"), (0.3, 0.5, "0.3-0.5"),
-                          (0.5, 0.7, "0.5-0.7"), (0.7, 1.01, ">0.7")]:
-        mask = (subset.tanimoto.values >= lo) & (subset.tanimoto.values < hi)
-        if mask.sum() < 10: continue
-        line = f"  Tan {label:<8s} {mask.sum():>7d}"
-        for m in model_order:
-            p = np.array(all_preds[m])[mask]
-            val = ci_fn(true[mask], p)
-            line += f"  {val:>12.4f}"
-        print(line)
-
-    print(f"\n{'='*90}")
-    log.info("Done.")
-
-    # Save predictions
-    out_df = subset[["protein_id", "ligand_smiles", "pki", "anchor_uid", "anchor_pki", "tanimoto"]].copy()
-    for m in model_order:
-        out_df[f"pred_{m}"] = all_preds[m]
-    out_path = results_dir / "lcidb_eval_predictions.csv"
-    out_df.to_csv(out_path, index=False)
-    log.info(f"Predictions saved to {out_path}")
+    log.info("\nAll done.")
 
 
 if __name__ == "__main__":
