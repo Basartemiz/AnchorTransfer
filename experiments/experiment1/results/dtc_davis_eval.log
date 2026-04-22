@@ -1,0 +1,17 @@
+Using device: cuda
+Davis proteins: 442 total → 107 OOD vs DTC train (≤30% identity)
+Davis drugs: 68 total → 62 with Tanimoto anchors (≥0.7 similarity)
+get_esm2_embeddings: skipping 43 sequences longer than 1022 residues
+Davis-OOD evaluable samples: 3096
+========================================================================
+DAVIS-OOD (≤30% identity to DTC train, best checkpoints)
+  ESM-DTA:           macro_CI=0.4725  macro_RMSE=1.4262  macro_AUROC=0.4329 (n=71)  score=-0.9537
+  AnchorTransfer v2: macro_CI=0.5257  macro_RMSE=1.3692  macro_AUROC=0.6759 (n=71)  score=-0.8435
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown:
+           bin |      n |  ESM RMSE  ESM CI |  Anc RMSE  Anc CI
+         ≤8.15 |    860 |    1.5357  0.5072 |    1.1740  0.5246
+  (8.15, 8.74] |    774 |    1.3581  0.5393 |    1.3158  0.4705
+  (8.74, 9.29] |    774 |    1.5603  0.4872 |    1.5939  0.5455
+         >9.29 |    688 |    1.4340  0.5114 |    1.4511  0.6066
+========================================================================

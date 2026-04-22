@@ -1,0 +1,71 @@
+Using device: cuda  |  dataset: bdb (bindingdb_interactions.csv)
+Split proteins: train=2651 val=331 test=332
+get_esm2_embeddings: skipping 329 sequences longer than 1022 residues
+Samples: train=159617 val=20937 test=12478
+Epoch 1/10 - ESM-DTA avg loss: 2.0471 - AnchorTransfer v2 avg loss: 1.4823
+  Val ESM-DTA:           macro_CI=0.5244  macro_RMSE=1.4556  score=-0.9313
+  Val AnchorTransfer v2: macro_CI=0.5468  macro_RMSE=1.4424  score=-0.8956
+  [best] ESM-DTA score improved → saved esm_dta_best.pt
+  [best] AnchorTransfer v2 score improved → saved anchor_dta_best.pt
+Epoch 2/10 - ESM-DTA avg loss: 1.2810 - AnchorTransfer v2 avg loss: 0.9237
+  Val ESM-DTA:           macro_CI=0.5529  macro_RMSE=1.4665  score=-0.9136
+  Val AnchorTransfer v2: macro_CI=0.5978  macro_RMSE=1.3612  score=-0.7634
+  [best] ESM-DTA score improved → saved esm_dta_best.pt
+  [best] AnchorTransfer v2 score improved → saved anchor_dta_best.pt
+Epoch 3/10 - ESM-DTA avg loss: 1.1770 - AnchorTransfer v2 avg loss: 0.7839
+  Val ESM-DTA:           macro_CI=0.5578  macro_RMSE=1.5056  score=-0.9479
+  Val AnchorTransfer v2: macro_CI=0.6219  macro_RMSE=1.3619  score=-0.7400
+  [best] AnchorTransfer v2 score improved → saved anchor_dta_best.pt
+Epoch 4/10 - ESM-DTA avg loss: 1.0959 - AnchorTransfer v2 avg loss: 0.6963
+  Val ESM-DTA:           macro_CI=0.5681  macro_RMSE=1.4013  score=-0.8332
+  Val AnchorTransfer v2: macro_CI=0.6130  macro_RMSE=1.3288  score=-0.7158
+  [best] ESM-DTA score improved → saved esm_dta_best.pt
+  [best] AnchorTransfer v2 score improved → saved anchor_dta_best.pt
+Epoch 5/10 - ESM-DTA avg loss: 1.0031 - AnchorTransfer v2 avg loss: 0.6265
+  Val ESM-DTA:           macro_CI=0.5475  macro_RMSE=1.3843  score=-0.8368
+  Val AnchorTransfer v2: macro_CI=0.6199  macro_RMSE=1.3183  score=-0.6984
+  [best] AnchorTransfer v2 score improved → saved anchor_dta_best.pt
+Epoch 6/10 - ESM-DTA avg loss: 0.9165 - AnchorTransfer v2 avg loss: 0.5778
+  Val ESM-DTA:           macro_CI=0.5645  macro_RMSE=1.4737  score=-0.9092
+  Val AnchorTransfer v2: macro_CI=0.6257  macro_RMSE=1.2919  score=-0.6662
+  [best] AnchorTransfer v2 score improved → saved anchor_dta_best.pt
+Epoch 7/10 - ESM-DTA avg loss: 0.8519 - AnchorTransfer v2 avg loss: 0.5357
+  Val ESM-DTA:           macro_CI=0.5649  macro_RMSE=1.4733  score=-0.9084
+  Val AnchorTransfer v2: macro_CI=0.6211  macro_RMSE=1.2568  score=-0.6357
+  [best] AnchorTransfer v2 score improved → saved anchor_dta_best.pt
+Epoch 8/10 - ESM-DTA avg loss: 0.7979 - AnchorTransfer v2 avg loss: 0.5017
+  Val ESM-DTA:           macro_CI=0.5629  macro_RMSE=1.3692  score=-0.8063
+  Val AnchorTransfer v2: macro_CI=0.6097  macro_RMSE=1.3084  score=-0.6987
+  [best] ESM-DTA score improved → saved esm_dta_best.pt
+Epoch 9/10 - ESM-DTA avg loss: 0.7470 - AnchorTransfer v2 avg loss: 0.4700
+  Val ESM-DTA:           macro_CI=0.5537  macro_RMSE=1.3712  score=-0.8175
+  Val AnchorTransfer v2: macro_CI=0.6136  macro_RMSE=1.2947  score=-0.6811
+Epoch 10/10 - ESM-DTA avg loss: 0.6953 - AnchorTransfer v2 avg loss: 0.4461
+  Val ESM-DTA:           macro_CI=0.5771  macro_RMSE=1.3536  score=-0.7765
+  Val AnchorTransfer v2: macro_CI=0.6176  macro_RMSE=1.2897  score=-0.6721
+  [best] ESM-DTA score improved → saved esm_dta_best.pt
+========================================================================
+TEST SET (best checkpoints)
+  ESM-DTA:           macro_CI=0.6033  macro_RMSE=1.2856  macro_AUROC=0.7835 (n=73)  score=-0.6823
+  AnchorTransfer v2: macro_CI=0.6040  macro_RMSE=1.1998  macro_AUROC=0.8184 (n=73)  score=-0.5958
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown (data-driven quartiles of anchor pKi):
+           bin |      n |  ESM RMSE  ESM CI |  Anc RMSE  Anc CI
+         ≤7.55 |   3213 |    1.3455  0.5980 |    1.1883  0.6155
+  (7.55, 8.08] |   3039 |    1.3898  0.6231 |    1.2108  0.6588
+  (8.08, 8.74] |   3109 |    1.4757  0.6329 |    1.3135  0.6665
+         >8.74 |   3117 |    1.6027  0.6555 |    1.4247  0.6989
+========================================================================
+Oracle test samples: 14124 (drugs with oracle anchor: 23304)
+========================================================================
+TEST SET — ORACLE ANCHORS (strongest test binder per drug, upper bound)
+  ESM-DTA:           macro_CI=0.5653  macro_RMSE=1.4099  macro_AUROC=0.6299 (n=72)  score=-0.8446
+  AnchorTransfer v2: macro_CI=0.6096  macro_RMSE=1.2429  macro_AUROC=0.7763 (n=72)  score=-0.6334
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown (oracle):
+           bin |      n |  ESM RMSE  ESM CI |  Anc RMSE  Anc CI
+         ≤7.19 |   3532 |    1.6114  0.5297 |    1.1447  0.5407
+  (7.19, 7.89] |   3569 |    1.3674  0.5771 |    1.2140  0.5803
+  (7.89, 8.55] |   3547 |    1.4596  0.5837 |    1.2161  0.6220
+         >8.55 |   3476 |    1.8111  0.5612 |    1.4439  0.6147
+========================================================================
