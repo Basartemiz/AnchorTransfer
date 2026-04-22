@@ -1,0 +1,15 @@
+Using device: cuda  |  identity≥0.9, |Δpki|≥2.0
+Homolog-cliff pairs found: 530
+Drugs with Tanimoto anchors (≥0.7): 40 / 43
+Pairs with external anchor available: 496
+Using cache found in /root/.cache/torch/hub/rohitsinghlab_raygun_main
+Raygun embeddings ready: 232 proteins
+Morgan cache: 49 drugs fingerprinted
+Eval samples (pair sides): 418
+========================================================================
+HOMOLOG-CLIFF PAIRS  (identity≥0.9, |Δpki|≥2.0)
+  metric = pair-ranking accuracy (did model predict higher side correctly)
+------------------------------------------------------------------------
+ConciseDTA           :  acc=0.0766 (n=496)  Δpki corr=-0.0288  side RMSE=2.2171  |true Δ|=2.70  |pred Δ|=0.00
+ConciseAnchorBilinear:  acc=0.0786 (n=496)  Δpki corr=+0.0406  side RMSE=1.7902  |true Δ|=2.70  |pred Δ|=0.00
+========================================================================

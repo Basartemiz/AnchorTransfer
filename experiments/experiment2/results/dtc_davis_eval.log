@@ -1,0 +1,17 @@
+Using device: cuda  |  anchors from: dtc (dtc_training_interactions.csv)
+Davis proteins: 442 total → 105 OOD vs dtc train (≤30% identity)
+Davis drugs: 68 total → 60 with Tanimoto anchors (≥0.7 similarity)
+Graph cache: 68 / 68 Davis SMILES featurized
+Davis-OOD evaluable samples: 6300
+========================================================================
+DAVIS-OOD (≤30% identity to dtc train, best checkpoints)
+  DrugBAN:       macro_CI=0.5215  macro_RMSE=1.6412  macro_AUROC=0.5667 (n=99)  score=-1.1197
+  AnchorDrugBAN: macro_CI=0.5418  macro_RMSE=1.3801  macro_AUROC=0.6674 (n=99)  score=-0.8383
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown:
+           bin |      n |   DB RMSE   DB CI |  Anc RMSE  Anc CI
+         ≤8.15 |   1680 |    1.5885  0.5006 |    1.5319  0.5038
+  (8.15, 8.70] |   1575 |    1.6896  0.5595 |    1.3724  0.5530
+  (8.70, 9.29] |   1575 |    1.7363  0.4658 |    1.3693  0.5525
+         >9.29 |   1470 |    1.5975  0.5413 |    1.2602  0.5881
+========================================================================
