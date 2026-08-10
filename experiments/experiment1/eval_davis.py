@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 
 import pandas as pd
 import torch
@@ -68,6 +69,13 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", choices=list(INTERACTIONS_PATHS), default="dtc",
                         help="Training-source anchors + OOD split to replay (dtc or bdb).")
+    parser.add_argument("--random-anchor", action="store_true",
+                        help="Permute the drug->anchor assignment. The anchor pool, the "
+                             "number of samples and every embedding stay identical; only "
+                             "the correspondence between a drug and a protein known to "
+                             "bind it is destroyed. If scores hold up under this, the "
+                             "model is using the second protein slot as capacity rather "
+                             "than reading the anchor relationship.")
     args = parser.parse_args()
     interactions_path = INTERACTIONS_PATHS[args.dataset]
 
@@ -120,6 +128,25 @@ def main() -> None:
         pki_threshold=7.0,
     )
     print(f"Davis drugs: {len(davis_drugs)} total → {len(drug_to_anchor)} with Tanimoto anchors (≥0.7 similarity)")
+
+    if args.random_anchor:
+        # Permute which drug gets which anchor. Keys, pool, and per-drug pKi
+        # bookkeeping are preserved so the evaluated sample set is unchanged;
+        # only drug<->anchor correspondence is broken.
+        rng = random.Random(0)
+        keys = sorted(drug_to_anchor)
+        shuffled = keys[:]
+        rng.shuffle(shuffled)
+        remap = dict(zip(keys, shuffled))
+        drug_to_anchor = {k: drug_to_anchor[remap[k]] for k in keys}
+        drug_to_anchor_pki = {k: drug_to_anchor_pki[remap[k]] for k in keys}
+        drug_to_second = {k: drug_to_second[remap[k]] for k in keys
+                          if remap[k] in drug_to_second}
+        drug_to_second_pki = {k: drug_to_second_pki[remap[k]] for k in keys
+                              if remap[k] in drug_to_second_pki}
+        fixed = sum(1 for k in keys if remap[k] == k)
+        print(f"[random-anchor] permuted {len(keys)} drug->anchor assignments "
+              f"({fixed} unchanged by chance)")
 
     # ESM-2 embeddings for both the OOD Davis queries and the DTC anchor proteins.
     anchor_uids = set(drug_to_anchor.values()) | set(drug_to_second.values())
