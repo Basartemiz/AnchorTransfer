@@ -1,7 +1,8 @@
-# Experiment 1 — ESM-DTA vs AnchorTransfer v2 (Residual)
+# Experiment 1 — ESM-DTA vs AnchorTransfer v2
 
-Architecture: `pki_pred = anchor_pki + delta(a, q, d)` — the anchor model
-predicts a residual correction over the known anchor-protein pKi for the drug.
+Architecture: `pki_pred = f(a, q, d)` — the anchor enters through its ESM-2
+protein embedding, not through its measured pKi. The anchor's affinity value is
+never an input to the model.
 
 All runs below use `min_target_pki=None` (no binder-only filter on targets),
 `pki_threshold=7` only on the *anchor* side, MMseqs2 OOD split (test ≤30%

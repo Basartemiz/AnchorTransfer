@@ -65,7 +65,6 @@ def train_models(
             protein_esm2 = batch["protein_esm2"].to(device)
             pki_targets = batch["pki"].to(device)
             anchor_esm2 = batch["anchor_protein_esm2"].to(device)
-            anchor_pki = batch["anchor_pki"].to(device)
 
             # ESM-DTA
             esm_dta_preds = esm_dta_model(drug_indices, protein_esm2)
@@ -76,7 +75,6 @@ def train_models(
                 anchor_esm2=anchor_esm2,
                 query_esm2=protein_esm2,
                 drug_indices=drug_indices,
-                anchor_pki=anchor_pki,
             )["pki_pred"]
             anchor_dta_loss = F.mse_loss(anchor_dta_preds, pki_targets)
 

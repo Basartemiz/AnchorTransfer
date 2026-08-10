@@ -37,7 +37,6 @@ def evaluate_model(
                     anchor_esm2=batch["anchor_protein_esm2"].to(device),
                     query_esm2=protein_esm2,
                     drug_indices=drug_indices,
-                    anchor_pki=batch["anchor_pki"].to(device),
                 )["pki_pred"]
             else:
                 preds = model(drug_indices, protein_esm2)
