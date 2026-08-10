@@ -122,7 +122,7 @@ def main() -> None:
         drug_to_second_pki=drug_to_second_pki,
         graph_cache=graph_cache,
     )
-    davis_loader = DataLoader(davis_ds, batch_size=64, shuffle=False, collate_fn=collate_fn)
+    davis_loader = DataLoader(davis_ds, batch_size=64, shuffle=False, collate_fn=collate_fn, num_workers=12)
     print(f"Davis-OOD evaluable samples: {len(davis_ds)}")
 
     drugban_model = DrugBAN(**DRUGBAN_CONFIG).to(device)
@@ -176,7 +176,7 @@ def main() -> None:
         drug_to_second_pki=oracle_second_pki,
         graph_cache=graph_cache,
     )
-    oracle_loader = DataLoader(oracle_ds, batch_size=64, shuffle=False, collate_fn=collate_fn)
+    oracle_loader = DataLoader(oracle_ds, batch_size=64, shuffle=False, collate_fn=collate_fn, num_workers=12)
     print(f"Davis-OOD oracle samples: {len(oracle_ds)} (drugs with oracle anchor: {len(oracle_anchor)})")
 
     drugban_o_metrics, drugban_o_records = evaluate_model(drugban_model, oracle_loader, device, return_records=True)

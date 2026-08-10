@@ -120,9 +120,16 @@ def main() -> None:
     )
     print(f"Samples: train={len(train_ds)} val={len(val_ds)} test={len(test_ds)}")
 
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
-    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
-    test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+    # Graph batches are built in worker processes. Note this is NOT where the
+    # time goes: measured with these workers active they sit at ~0.2% CPU while
+    # the main process stays pegged, because the step is dominated by many small
+    # GPU kernels (two models per loop, and the anchor model runs its shared
+    # attention twice) launched from one Python thread. Sampling order is set by
+    # the main-process sampler, so this does not change results.
+    loader_kw = dict(num_workers=12, persistent_workers=True, prefetch_factor=4)
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, collate_fn=collate_fn, **loader_kw)
+    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, collate_fn=collate_fn, **loader_kw)
+    test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False, collate_fn=collate_fn, **loader_kw)
 
     train_models(train_loader, val_loader, epochs=epochs,
                  drugban_model=drugban_model,
@@ -169,7 +176,7 @@ def main() -> None:
         drug_to_second_pki=oracle_second_pki,
         graph_cache=graph_cache,
     )
-    oracle_test_loader = DataLoader(oracle_test_ds, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+    oracle_test_loader = DataLoader(oracle_test_ds, batch_size=batch_size, shuffle=False, collate_fn=collate_fn, **loader_kw)
     print(f"Oracle test samples: {len(oracle_test_ds)} (drugs with oracle anchor: {len(oracle_anchor)})")
 
     drugban_oracle, drugban_oracle_records = evaluate_model(drugban_model, oracle_test_loader, device, return_records=True)
