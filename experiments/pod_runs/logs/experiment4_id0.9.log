@@ -1,0 +1,18 @@
+Using device: cuda  |  identity≥0.9, |Δpki|≥2.0
+Homolog-cliff pairs found: 530
+Drugs with Tanimoto anchors (≥0.7): 40 / 43
+Pairs with external anchor available: 496
+Raygun embeddings ready: 196 proteins
+Morgan cache: 49 drugs fingerprinted
+Eval samples (pair sides): 418
+========================================================================
+HOMOLOG-CLIFF PAIRS  (identity≥0.9, |Δpki|≥2.0)
+  metric = pair-ranking accuracy (did model predict higher side correctly)
+------------------------------------------------------------------------
+ConciseDTA           :  acc=0.0000 (n=496)  Δpki corr=-0.0036  side RMSE=2.1855  |true Δ|=2.70  |pred Δ|=0.00  ties=492/496 (99.2%)  acc_excl_ties=0.0000
+/root/venv312/lib/python3.12/site-packages/numpy/lib/function_base.py:2897: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+/root/venv312/lib/python3.12/site-packages/numpy/lib/function_base.py:2898: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+ConciseAnchorBilinear:  acc=0.0000 (n=496)  Δpki corr=+nan  side RMSE=1.6649  |true Δ|=2.70  |pred Δ|=0.00  ties=496/496 (100.0%)  acc_excl_ties=nan
+========================================================================

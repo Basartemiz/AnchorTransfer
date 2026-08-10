@@ -1,0 +1,14 @@
+Using device: cuda  |  identity≥0.5, |Δpki|≥2.0
+Homolog-cliff pairs found: 758
+Drugs with Tanimoto anchors (≥0.7): 49 / 53
+Pairs with external anchor available: 695
+Raygun embeddings ready: 195 proteins
+Morgan cache: 49 drugs fingerprinted
+Eval samples (pair sides): 626
+========================================================================
+HOMOLOG-CLIFF PAIRS  (identity≥0.5, |Δpki|≥2.0)
+  metric = pair-ranking accuracy (did model predict higher side correctly)
+------------------------------------------------------------------------
+ConciseDTA           :  acc=0.1252 (n=695)  Δpki corr=+0.0062  side RMSE=2.1954  |true Δ|=2.70  |pred Δ|=0.03  ties=485/695 (69.8%)  acc_excl_ties=0.4143
+ConciseAnchorBilinear:  acc=0.2489 (n=695)  Δpki corr=+0.1149  side RMSE=1.5902  |true Δ|=2.70  |pred Δ|=0.19  ties=485/695 (69.8%)  acc_excl_ties=0.8238
+========================================================================

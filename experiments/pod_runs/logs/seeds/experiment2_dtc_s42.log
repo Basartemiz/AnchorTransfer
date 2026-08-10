@@ -1,0 +1,7 @@
+[seed_run] seed=42 exp=experiment2 dataset=dtc entry=main
+Using device: cuda  |  dataset: dtc (dtc_training_interactions.csv)
+/usr/local/lib/python3.11/dist-packages/torch/nn/utils/weight_norm.py:134: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+  WeightNorm.apply(module, name, dim)
+Split proteins: train=2262 val=282 test=283
+Graph cache: 164831 / 164831 SMILES successfully featurized
+Samples: train=178337 val=22105 test=9197

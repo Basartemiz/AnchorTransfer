@@ -1,0 +1,308 @@
+{
+  "experiment1|bdb|Davis-OOD|auroc": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 0.64212,
+    "baseline_std": 0.08721015995857365,
+    "anchor_mean": 0.7689,
+    "anchor_std": 0.04611637453226349,
+    "delta": 0.12678,
+    "t": 3.873643430825699
+  },
+  "experiment1|bdb|Davis-OOD|ci": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 0.53606,
+    "baseline_std": 0.01885796913774119,
+    "anchor_mean": 0.5661400000000001,
+    "anchor_std": 0.014435996674978836,
+    "delta": 0.030079999999999975,
+    "t": 7.536882683684929
+  },
+  "experiment1|bdb|Davis-OOD|rmse": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 1.91612,
+    "baseline_std": 0.2480741360964501,
+    "anchor_mean": 1.2545600000000001,
+    "anchor_std": 0.06858263628645371,
+    "delta": -0.66156,
+    "t": -7.357437443739245
+  },
+  "experiment1|bdb|Oracle|auroc": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 0.6044,
+    "baseline_std": 0.022307173734025555,
+    "anchor_mean": 0.62736,
+    "anchor_std": 0.03718121837702472,
+    "delta": 0.02295999999999998,
+    "t": 1.2148256976558454
+  },
+  "experiment1|bdb|Oracle|ci": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 0.53404,
+    "baseline_std": 0.005594461546922997,
+    "anchor_mean": 0.52154,
+    "anchor_std": 0.006297459805350126,
+    "delta": -0.0125,
+    "t": -3.275552678220764
+  },
+  "experiment1|bdb|Oracle|rmse": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 1.58376,
+    "baseline_std": 0.03574196413181567,
+    "anchor_mean": 1.49664,
+    "anchor_std": 0.027591538558043457,
+    "delta": -0.08712,
+    "t": -4.876061188495359
+  },
+  "experiment1|bdb|Test|auroc": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 0.79072,
+    "baseline_std": 0.016619476526052192,
+    "anchor_mean": 0.79452,
+    "anchor_std": 0.022604136789534806,
+    "delta": 0.0038000000000000035,
+    "t": 0.3067180323135822
+  },
+  "experiment1|bdb|Test|ci": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 0.56594,
+    "baseline_std": 0.013235671497887798,
+    "anchor_mean": 0.55706,
+    "anchor_std": 0.015121276401150819,
+    "delta": -0.008880000000000022,
+    "t": -1.4269152786640493
+  },
+  "experiment1|bdb|Test|rmse": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 1.4354999999999998,
+    "baseline_std": 0.04431393685963819,
+    "anchor_mean": 1.3939800000000002,
+    "anchor_std": 0.06596265610176716,
+    "delta": -0.04152,
+    "t": -1.0312489195542425
+  },
+  "experiment1|dtc|Davis-OOD|auroc": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 0.61044,
+    "baseline_std": 0.18260674412518285,
+    "anchor_mean": 0.79258,
+    "anchor_std": 0.04379676928724308,
+    "delta": 0.18214,
+    "t": 2.4024212394885622
+  },
+  "experiment1|dtc|Davis-OOD|ci": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 0.52408,
+    "baseline_std": 0.04942602553311361,
+    "anchor_mean": 0.5698799999999999,
+    "anchor_std": 0.017605453700487255,
+    "delta": 0.04580000000000003,
+    "t": 2.5444130321317813
+  },
+  "experiment1|dtc|Davis-OOD|rmse": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 1.30034,
+    "baseline_std": 0.1398909861284851,
+    "anchor_mean": 1.1062,
+    "anchor_std": 0.0876819251613467,
+    "delta": -0.19413999999999998,
+    "t": -2.4110232912449368
+  },
+  "experiment1|dtc|Oracle|auroc": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 0.70404,
+    "baseline_std": 0.01072557690756071,
+    "anchor_mean": 0.76038,
+    "anchor_std": 0.025239988114101785,
+    "delta": 0.05633999999999999,
+    "t": 8.171346913207707
+  },
+  "experiment1|dtc|Oracle|ci": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 0.5514199999999999,
+    "baseline_std": 0.007927609980315652,
+    "anchor_mean": 0.56524,
+    "anchor_std": 0.009774098423895695,
+    "delta": 0.01382000000000001,
+    "t": 4.39908818020657
+  },
+  "experiment1|dtc|Oracle|rmse": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 1.37192,
+    "baseline_std": 0.027534560101806643,
+    "anchor_mean": 1.28058,
+    "anchor_std": 0.023447110696203022,
+    "delta": -0.09134000000000006,
+    "t": -4.70031991393893
+  },
+  "experiment1|dtc|Test|auroc": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 0.7987400000000001,
+    "baseline_std": 0.014431666570427663,
+    "anchor_mean": 0.8051999999999999,
+    "anchor_std": 0.026667395823364543,
+    "delta": 0.006459999999999977,
+    "t": 0.5413651974142704
+  },
+  "experiment1|dtc|Test|ci": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 0.58182,
+    "baseline_std": 0.01053693503823573,
+    "anchor_mean": 0.5914200000000001,
+    "anchor_std": 0.0067776839702069274,
+    "delta": 0.00960000000000003,
+    "t": 1.9530923010507957
+  },
+  "experiment1|dtc|Test|rmse": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 1.44074,
+    "baseline_std": 0.02054587549850336,
+    "anchor_mean": 1.3967800000000001,
+    "anchor_std": 0.03095136507490418,
+    "delta": -0.04396,
+    "t": -5.669045139605379
+  }
+}

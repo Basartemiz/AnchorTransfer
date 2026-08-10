@@ -1,0 +1,3 @@
+Using device: cuda  |  dataset: bdb (bindingdb_interactions.csv)
+Split proteins: train=2652 val=331 test=331
+get_esm2_embeddings: skipping 329 sequences longer than 1022 residues

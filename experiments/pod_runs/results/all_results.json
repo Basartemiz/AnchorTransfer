@@ -1,0 +1,48 @@
+{
+  "exp1_dtc": [
+    {
+      "split": "Test",
+      "model": "ESM-DTA",
+      "ci": "0.5544",
+      "rmse": "1.1868",
+      "auroc": "0.8103"
+    },
+    {
+      "split": "Test",
+      "model": "AnchorTransfer v2",
+      "ci": "0.5703",
+      "rmse": "1.2257",
+      "auroc": "0.7981"
+    },
+    {
+      "split": "Oracle",
+      "model": "ESM-DTA",
+      "ci": "0.5674",
+      "rmse": "1.3004",
+      "auroc": "0.7071"
+    },
+    {
+      "split": "Oracle",
+      "model": "AnchorTransfer v2",
+      "ci": "0.5708",
+      "rmse": "1.2238",
+      "auroc": "0.6704"
+    }
+  ],
+  "experiment1_dtc_davis": [
+    {
+      "split": "Davis-OOD",
+      "model": "ESM-DTA",
+      "ci": "0.5130",
+      "rmse": "1.2047",
+      "auroc": "0.5826"
+    },
+    {
+      "split": "Davis-OOD",
+      "model": "AnchorTransfer v2",
+      "ci": "0.5519",
+      "rmse": "1.0987",
+      "auroc": "0.7012"
+    }
+  ]
+}

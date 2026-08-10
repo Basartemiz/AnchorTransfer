@@ -1,0 +1,11 @@
+=== exp4 identity=0.5 10:36:32 ===
+exp4_0.5 exit=0
+=== exp4 identity=0.7 10:38:05 ===
+exp4_0.7 exit=0
+=== exp4 identity=0.9 10:39:47 ===
+exp4_0.9 exit=0
+=== exp3 bdb train 10:41:15 ===
+exp3_bdb train exit=0
+=== exp3 bdb davis 11:08:16 ===
+exp3_bdb davis exit=0
+=== experiment2 dtc seed=42 train 11:11:59 ===

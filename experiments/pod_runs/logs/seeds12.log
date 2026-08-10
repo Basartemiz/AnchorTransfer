@@ -1,0 +1,41 @@
+=== experiment1 dtc seed=42 train 08:20:44 ===
+experiment1_dtc_s42 train exit=0
+=== experiment1 dtc seed=42 davis 08:27:50 ===
+experiment1_dtc_s42 davis exit=0
+=== experiment1 dtc seed=43 train 08:29:18 ===
+experiment1_dtc_s43 train exit=0
+=== experiment1 dtc seed=43 davis 08:35:08 ===
+experiment1_dtc_s43 davis exit=0
+=== experiment1 dtc seed=44 train 08:36:35 ===
+experiment1_dtc_s44 train exit=0
+=== experiment1 dtc seed=44 davis 08:42:37 ===
+experiment1_dtc_s44 davis exit=0
+=== experiment1 dtc seed=45 train 08:45:03 ===
+experiment1_dtc_s45 train exit=0
+=== experiment1 dtc seed=45 davis 08:53:43 ===
+experiment1_dtc_s45 davis exit=0
+=== experiment1 dtc seed=46 train 08:56:04 ===
+experiment1_dtc_s46 train exit=0
+=== experiment1 dtc seed=46 davis 09:01:21 ===
+experiment1_dtc_s46 davis exit=0
+=== experiment1 bdb seed=42 train 09:02:56 ===
+experiment1_bdb_s42 train exit=0
+=== experiment1 bdb seed=42 davis 09:11:19 ===
+experiment1_bdb_s42 davis exit=0
+=== experiment1 bdb seed=43 train 09:13:27 ===
+experiment1_bdb_s43 train exit=0
+=== experiment1 bdb seed=43 davis 09:18:30 ===
+experiment1_bdb_s43 davis exit=0
+=== experiment1 bdb seed=44 train 09:20:31 ===
+experiment1_bdb_s44 train exit=0
+=== experiment1 bdb seed=44 davis 09:25:31 ===
+experiment1_bdb_s44 davis exit=0
+=== experiment1 bdb seed=45 train 09:27:34 ===
+experiment1_bdb_s45 train exit=0
+=== experiment1 bdb seed=45 davis 09:32:46 ===
+experiment1_bdb_s45 davis exit=0
+=== experiment1 bdb seed=46 train 09:34:48 ===
+experiment1_bdb_s46 train exit=0
+=== experiment1 bdb seed=46 davis 09:40:29 ===
+experiment1_bdb_s46 davis exit=0
+=== experiment2 dtc seed=42 train 09:42:30 ===

@@ -1,0 +1,32 @@
+Using device: cuda  |  anchors from: dtc (dtc_training_interactions.csv)
+Davis proteins: 442 total → 117 OOD vs dtc train (≤30% identity)
+Davis drugs: 68 total → 60 with Tanimoto anchors (≥0.7 similarity)
+Using cache found in /root/.cache/torch/hub/rohitsinghlab_raygun_main
+Morgan cache: 164899 / 68 Davis SMILES fingerprinted
+Davis-OOD evaluable samples: 7020
+========================================================================
+DAVIS-OOD (≤30% identity to dtc train, best checkpoints)
+  ConciseDTA:    macro_CI=0.6233  macro_RMSE=0.7584  macro_AUROC=0.7964 (n=107)  score=-0.1352
+  ConciseAnchorBilinear: macro_CI=0.6248  macro_RMSE=0.6878  macro_AUROC=0.8199 (n=107)  score=-0.0630
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown:
+           bin |      n |  DTA RMSE  DTA CI |  Anc RMSE  Anc CI
+         ≤8.36 |   1872 |    0.7232  0.5544 |    0.6620  0.5684
+  (8.36, 8.80] |   1755 |    0.7890  0.6141 |    0.7220  0.6254
+  (8.80, 9.31] |   1755 |    0.7698  0.5905 |    0.7388  0.6240
+         >9.31 |   1638 |    0.9725  0.6550 |    0.8238  0.6878
+========================================================================
+Using cache found in /root/.cache/torch/hub/rohitsinghlab_raygun_main
+Davis-OOD oracle samples: 7722 (drugs with oracle anchor: 66)
+========================================================================
+DAVIS-OOD — ORACLE ANCHORS (strongest Davis binder per drug, upper bound)
+  ConciseDTA:    macro_CI=0.6132  macro_RMSE=0.7799  macro_AUROC=0.8090 (n=108)  score=-0.1667
+  ConciseAnchorBilinear: macro_CI=0.6181  macro_RMSE=0.6935  macro_AUROC=0.8785 (n=108)  score=-0.0755
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown (oracle):
+           bin |      n |  DTA RMSE  DTA CI |  Anc RMSE  Anc CI
+         ≤8.68 |   2230 |    0.7065  0.5694 |    0.6664  0.5753
+  (8.68, 9.08] |   1636 |    0.8753  0.5812 |    0.6987  0.6282
+  (9.08, 9.54] |   1985 |    0.8906  0.6317 |    0.7638  0.6635
+         >9.54 |   1871 |    0.8675  0.6185 |    0.7951  0.6397
+========================================================================

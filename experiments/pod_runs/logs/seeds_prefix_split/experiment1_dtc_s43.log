@@ -1,0 +1,24 @@
+[seed_run] seed=43 exp=experiment1 dataset=dtc entry=main
+Using device: cuda  |  dataset: dtc (dtc_training_interactions.csv)
+Split proteins: train=2261 val=284 test=282
+get_esm2_embeddings: skipping 253 sequences longer than 1022 residues
+Samples: train=133476 val=9371 test=10078
+Epoch 1/10 - ESM-DTA avg loss: 1.8180 - AnchorTransfer v2 avg loss: 1.8645
+  Val ESM-DTA:           macro_CI=0.5459  macro_RMSE=1.5968  score=-1.0509
+  Val AnchorTransfer v2: macro_CI=0.5389  macro_RMSE=1.5452  score=-1.0062
+  [best] ESM-DTA score improved → saved esm_dta_best.pt
+  [best] AnchorTransfer v2 score improved → saved anchor_dta_best.pt
+Epoch 2/10 - ESM-DTA avg loss: 1.1143 - AnchorTransfer v2 avg loss: 1.0149
+  Val ESM-DTA:           macro_CI=0.5456  macro_RMSE=1.4638  score=-0.9182
+  Val AnchorTransfer v2: macro_CI=0.5510  macro_RMSE=1.5146  score=-0.9636
+  [best] ESM-DTA score improved → saved esm_dta_best.pt
+  [best] AnchorTransfer v2 score improved → saved anchor_dta_best.pt
+Epoch 3/10 - ESM-DTA avg loss: 1.0191 - AnchorTransfer v2 avg loss: 0.8992
+  Val ESM-DTA:           macro_CI=0.5791  macro_RMSE=1.4606  score=-0.8814
+  Val AnchorTransfer v2: macro_CI=0.5670  macro_RMSE=1.5124  score=-0.9454
+  [best] ESM-DTA score improved → saved esm_dta_best.pt
+  [best] AnchorTransfer v2 score improved → saved anchor_dta_best.pt
+Epoch 4/10 - ESM-DTA avg loss: 0.9487 - AnchorTransfer v2 avg loss: 0.8084
+  Val ESM-DTA:           macro_CI=0.5949  macro_RMSE=1.4676  score=-0.8726
+  Val AnchorTransfer v2: macro_CI=0.5700  macro_RMSE=1.5180  score=-0.9480
+  [best] ESM-DTA score improved → saved esm_dta_best.pt
