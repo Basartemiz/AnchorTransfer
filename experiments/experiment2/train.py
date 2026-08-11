@@ -1,6 +1,7 @@
 """Training loop for DrugBAN vs AnchorDrugBAN comparison on DTC/BDB."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import torch
@@ -11,7 +12,9 @@ from anchor_transfer.model.drugban import DrugBAN
 
 from experiments.experiment2.eval import evaluate_model
 
-CHECKPOINT_DIR = Path(__file__).parent / "checkpoints"
+# Overridable so an evaluation can be pointed at an archived run while this
+# directory is being rewritten by another training job.
+CHECKPOINT_DIR = Path(os.environ.get("EXP2_CHECKPOINTS", Path(__file__).parent / "checkpoints"))
 
 
 def _macro_metrics(protein_metrics: dict) -> tuple[float, float, float]:
