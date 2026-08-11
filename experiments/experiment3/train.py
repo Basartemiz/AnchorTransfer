@@ -1,6 +1,7 @@
 """Training loop for ConciseDTA vs ConciseAnchorBilinear comparison on DTC/BDB."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import torch
@@ -11,7 +12,9 @@ from anchor_transfer.model.concise_dta import ConciseDTA
 
 from experiments.experiment3.eval import evaluate_model
 
-CHECKPOINT_DIR = Path(__file__).parent / "checkpoints"
+CHECKPOINT_DIR = Path(
+    os.environ.get("EXP3_CHECKPOINTS", Path(__file__).parent / "checkpoints")
+)
 
 
 def _macro_metrics(protein_metrics: dict) -> tuple[float, float, float]:

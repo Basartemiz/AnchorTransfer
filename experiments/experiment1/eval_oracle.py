@@ -17,7 +17,7 @@ from experiments.experiment1.dataset import (
     get_esm2_embeddings,
 )
 from experiments.experiment1.eval import evaluate_model, quartile_metrics
-from experiments.experiment1.main import DTC_INTERACTIONS_PATH, MERGED_SEQUENCES_PATH
+from experiments.experiment1.main import DTC_INTERACTIONS_PATH, MERGED_SEQUENCES_PATH, SPLIT_SEED
 from experiments.experiment1.split import ood_split
 from experiments.experiment1.train import CHECKPOINT_DIR, _macro_auroc, _macro_metrics
 
@@ -33,14 +33,14 @@ def main() -> None:
     dtc_uniprots = set(interactions_df["uniprot_id"].unique())
     dtc_sequences = {uid: all_sequences[uid] for uid in dtc_uniprots if uid in all_sequences}
 
-    # Replay the training split (seed=42).
+    # Replay the training split.
     train_uids, val_uids, test_uids = ood_split(
         dtc_sequences,
         test_frac=0.1, val_frac=0.1,
         test_identity=0.3, val_identity=0.5,
-        seed=42,
+        seed=SPLIT_SEED,
     )
-    print(f"Split proteins: train={len(train_uids)} val={len(val_uids)} test={len(test_uids)}")
+    print(f"Split proteins (split_seed={SPLIT_SEED}): train={len(train_uids)} val={len(val_uids)} test={len(test_uids)}")
 
     esm2_embeddings = get_esm2_embeddings(dtc_sequences)
 

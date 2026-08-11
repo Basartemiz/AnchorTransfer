@@ -28,6 +28,7 @@ from experiments.experiment3.main import (
     MERGED_SEQUENCES_PATH,
     N_HEADS,
     PROJ_DIM,
+    SPLIT_SEED,
 )
 from experiments.experiment3.split import mmseqs_cluster, ood_split
 from experiments.experiment3.train import CHECKPOINT_DIR, _macro_auroc, _macro_metrics
@@ -75,7 +76,7 @@ def main() -> None:
         src_sequences,
         test_frac=0.1, val_frac=0.1,
         test_identity=0.3, val_identity=0.5,
-        seed=42,
+        seed=SPLIT_SEED,
     )
 
     davis_df = pd.read_csv(DAVIS_PATH).rename(

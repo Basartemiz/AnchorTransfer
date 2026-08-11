@@ -25,6 +25,7 @@ from experiments.experiment1.main import (
     DATA_DIR,
     INTERACTIONS_PATHS,
     MERGED_SEQUENCES_PATH,
+    SPLIT_SEED,
 )
 from experiments.experiment1.split import mmseqs_cluster, ood_split
 from experiments.experiment1.train import CHECKPOINT_DIR, _macro_auroc, _macro_metrics
@@ -90,12 +91,12 @@ def main() -> None:
     dtc_uniprots = set(interactions_df["uniprot_id"].unique())
     dtc_sequences = {uid: all_sequences[uid] for uid in dtc_uniprots if uid in all_sequences}
 
-    # Replay the same split used for training (seed=42) to recover train_uids.
+    # Replay the same split used for training to recover train_uids.
     train_uids, _, _ = ood_split(
         dtc_sequences,
         test_frac=0.1, val_frac=0.1,
         test_identity=0.3, val_identity=0.5,
-        seed=42,
+        seed=SPLIT_SEED,
     )
 
     # Davis benchmark — rename columns to match DTC schema so AnchorTransferDataset works.

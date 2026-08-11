@@ -1,6 +1,7 @@
 """Training loop for ESM-DTA vs AnchorTransfer v2 comparison."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import torch
@@ -8,7 +9,9 @@ import torch.nn.functional as F
 
 from experiments.experiment1.eval import evaluate_model
 
-CHECKPOINT_DIR = Path(__file__).parent / "checkpoints"
+CHECKPOINT_DIR = Path(
+    os.environ.get("EXP1_CHECKPOINTS", Path(__file__).parent / "checkpoints")
+)
 
 
 def _macro_metrics(protein_metrics: dict) -> tuple[float, float, float]:

@@ -4,14 +4,17 @@ The experiment entrypoints take no --seed flag and never call torch.manual_seed,
 so repeated runs differ only by uncontrolled RNG. This wrapper seeds every RNG
 before importing and calling main(), which is where the models are constructed.
 
-The OOD split is unaffected: ood_split() builds its own random.Random(42)
-internally and split.py sorts sequences before clustering, so the split stays
-fixed while the training initialisation varies. That is the decomposition
-needed to report seed variance meaningfully.
+SEED does not touch the OOD split: ood_split() builds its own random.Random()
+from SPLIT_SEED (default 42) and split.py sorts sequences before clustering, so
+the split stays fixed while the training initialisation varies. Varying SEED at
+fixed SPLIT_SEED isolates initialisation variance; varying SPLIT_SEED at fixed
+SEED isolates how much the result depends on which proteins were held out.
 
 Usage:
     SEED=42 EXP=experiment1 DS=dtc MOD=main       python experiments/seed_run.py
     SEED=42 EXP=experiment1 DS=dtc MOD=eval_davis python experiments/seed_run.py
+    SPLIT_SEED=1 SEED=42 EXP=experiment1 DS=dtc MOD=main \
+        EXP1_CHECKPOINTS=... python experiments/seed_run.py
 
 MOD=main produces the Test and Oracle rows; MOD=eval_davis produces Davis-OOD
 (and, for experiment 3, Davis-oracle). eval_davis loads the *_best.pt written by

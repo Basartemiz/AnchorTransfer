@@ -26,6 +26,7 @@ from experiments.experiment3.main import (
     MERGED_SEQUENCES_PATH,
     N_HEADS,
     PROJ_DIM,
+    SPLIT_SEED,
 )
 from experiments.experiment3.split import ood_split
 from experiments.experiment3.train import CHECKPOINT_DIR, _macro_auroc, _macro_metrics
@@ -51,9 +52,9 @@ def main() -> None:
         sequences,
         test_frac=0.1, val_frac=0.1,
         test_identity=0.3, val_identity=0.5,
-        seed=42,
+        seed=SPLIT_SEED,
     )
-    print(f"Split proteins: train={len(train_uids)} val={len(val_uids)} test={len(test_uids)}")
+    print(f"Split proteins (split_seed={SPLIT_SEED}): train={len(train_uids)} val={len(val_uids)} test={len(test_uids)}")
 
     protein_embeddings = build_raygun_cache(sequences, device=device)
 

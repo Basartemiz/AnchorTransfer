@@ -1,12 +1,18 @@
-"""Aggregate per-seed experiment logs into mean +/- std with a paired t-test.
+"""Aggregate repeated experiment logs into mean +/- std with a paired t-test.
 
-Expects logs named by seed_run.py's convention:
-    {exp}_{ds}_s{seed}.log        -> Test, Oracle sections
-    {exp}_{ds}_s{seed}_davis.log  -> Davis-OOD, Davis-oracle sections
+Expects logs named by seed_run.py's convention, where the replicate id is
+either a training seed or a split seed:
+    {exp}_{ds}_s{seed}.log            -> Test, Oracle sections
+    {exp}_{ds}_s{seed}_davis.log      -> Davis-OOD, Davis-oracle sections
+    {exp}_{ds}_split{seed}.log        -> same, one protein partition per file
 
-Both models are trained under the same seed inside one run, so the anchor-vs-
-baseline difference is paired and the t is computed on per-seed differences.
-The model whose name contains "anchor" is treated as the anchor arm.
+Both models are trained inside one run, so the anchor-vs-baseline difference is
+paired and the t is computed on per-replicate differences. The model whose name
+contains "anchor" is treated as the anchor arm.
+
+Point one invocation at a directory of seed replicates (split held fixed) and
+another at a directory of split replicates (seed held fixed); mixing the two in
+one directory would count the shared run twice.
 
 Usage:
     python experiments/summarize_seeds.py <log_dir> [output.json]
@@ -24,7 +30,9 @@ METRIC_RE = re.compile(
     r"^\s{2}(?P<model>[A-Za-z0-9_. \-]+?):\s+macro_CI=(?P<ci>[-\d.]+|nan)\s+"
     r"macro_RMSE=(?P<rmse>[-\d.]+|nan)\s+macro_AUROC=(?P<auroc>[-\d.]+|nan)"
 )
-NAME_RE = re.compile(r"^(?P<exp>experiment\d)_(?P<ds>dtc|bdb)_s(?P<seed>\d+)(?P<davis>_davis)?$")
+NAME_RE = re.compile(
+    r"^(?P<exp>experiment\d)_(?P<ds>dtc|bdb)_(?:s|split)(?P<seed>\d+)(?P<davis>_davis)?$"
+)
 
 # Longest label first: "DAVIS-OOD — ORACLE ANCHORS" also contains "DAVIS-OOD".
 SECTIONS = [
@@ -79,18 +87,18 @@ def main() -> None:
     acc = collect(log_dir)
 
     groups: dict[tuple, list[str]] = defaultdict(list)
-    for (exp, ds, split, metric, model) in acc:
-        key = (exp, ds, split, metric)
+    for (exp, ds, section, metric, model) in acc:
+        key = (exp, ds, section, metric)
         if model not in groups[key]:
             groups[key].append(model)
 
-    print(f"{'exp':<12} {'ds':<4} {'split':<13} {'metric':<6} "
+    print(f"{'exp':<12} {'ds':<4} {'section':<13} {'metric':<6} "
           f"{'baseline':>17} {'anchor':>17} {'delta':>9} {'t':>7} {'n':>3}")
     print("-" * 100)
 
     out = {}
     for key in sorted(groups):
-        exp, ds, split, metric = key
+        exp, ds, section, metric = key
         models = groups[key]
         anchor = next((m for m in models if "anchor" in m.lower()), None)
         base = next((m for m in models if m != anchor), None)
@@ -107,7 +115,7 @@ def main() -> None:
         d_mu, d_sd = mean_std([x - y for x, y in zip(a, b)])
         t = (d_mu / (d_sd / math.sqrt(len(seeds)))) if len(seeds) > 1 and d_sd > 0 else float("nan")
 
-        print(f"{exp:<12} {ds:<4} {split:<13} {metric:<6} "
+        print(f"{exp:<12} {ds:<4} {section:<13} {metric:<6} "
               f"{b_mu:>9.4f}±{b_sd:<7.4f} {a_mu:>9.4f}±{a_sd:<7.4f} "
               f"{d_mu:>+9.4f} {t:>7.2f} {len(seeds):>3}")
         out["|".join(key)] = {
