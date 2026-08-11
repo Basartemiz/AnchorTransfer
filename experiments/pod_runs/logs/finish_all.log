@@ -9,3 +9,23 @@ exp3_bdb train exit=0
 === exp3 bdb davis 11:08:16 ===
 exp3_bdb davis exit=0
 === experiment2 dtc seed=42 train 11:11:59 ===
+experiment2_dtc_s42 train exit=0
+=== experiment2 dtc seed=42 davis 14:22:13 ===
+experiment2_dtc_s42 davis exit=0
+=== experiment2 dtc seed=43 train 14:24:15 ===
+experiment2_dtc_s43 train exit=0
+=== experiment2 dtc seed=43 davis 17:34:28 ===
+experiment2_dtc_s43 davis exit=0
+=== experiment2 dtc seed=44 train 17:36:27 ===
+experiment2_dtc_s44 train exit=0
+=== experiment2 dtc seed=44 davis 20:47:16 ===
+experiment2_dtc_s44 davis exit=0
+=== experiment2 dtc seed=45 train 20:49:17 ===
+experiment2_dtc_s45 train exit=0
+=== experiment2 dtc seed=45 davis 23:59:15 ===
+experiment2_dtc_s45 davis exit=0
+=== experiment2 dtc seed=46 train 00:01:16 ===
+experiment2_dtc_s46 train exit=0
+=== experiment2 dtc seed=46 davis 03:11:01 ===
+experiment2_dtc_s46 davis exit=0
+=== experiment2 bdb seed=42 train 03:13:02 ===

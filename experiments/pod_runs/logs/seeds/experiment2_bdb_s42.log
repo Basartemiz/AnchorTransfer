@@ -1,0 +1,95 @@
+[seed_run] seed=42 exp=experiment2 dataset=bdb entry=main
+Using device: cuda  |  dataset: bdb (bindingdb_interactions.csv)
+/usr/local/lib/python3.11/dist-packages/torch/nn/utils/weight_norm.py:134: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+  WeightNorm.apply(module, name, dim)
+Split proteins: train=2651 val=332 test=331
+[03:14:00] Explicit valence for atom # 17 N, 4, is greater than permitted
+[03:14:05] Explicit valence for atom # 1 N, 4, is greater than permitted
+[03:14:06] Can't kekulize mol.  Unkekulized atoms: 24 25 26 27 28
+[03:14:06] Can't kekulize mol.  Unkekulized atoms: 24 25 26 27 28
+[03:14:06] Can't kekulize mol.  Unkekulized atoms: 9 10 11 12 13
+[03:14:06] Can't kekulize mol.  Unkekulized atoms: 9 10 11 12 13
+[03:14:07] Explicit valence for atom # 0 N, 4, is greater than permitted
+[03:14:10] Explicit valence for atom # 19 O, 3, is greater than permitted
+[03:14:11] Can't kekulize mol.  Unkekulized atoms: 11 12 13 14 15 18 19 20 21
+[03:14:11] Can't kekulize mol.  Unkekulized atoms: 11 12 13 14 15 18 19 20 21
+[03:14:12] Explicit valence for atom # 31 N, 4, is greater than permitted
+[03:14:15] Can't kekulize mol.  Unkekulized atoms: 41 42 43 44 45
+[03:14:15] Can't kekulize mol.  Unkekulized atoms: 41 42 43 44 45
+[03:14:17] Explicit valence for atom # 5 N, 4, is greater than permitted
+[03:14:17] Explicit valence for atom # 14 N, 4, is greater than permitted
+[03:14:21] Can't kekulize mol.  Unkekulized atoms: 12 13 14 15 16 19 20 21 22
+[03:14:21] Can't kekulize mol.  Unkekulized atoms: 12 13 14 15 16 19 20 21 22
+[03:14:21] Explicit valence for atom # 13 N, 4, is greater than permitted
+[03:14:23] Explicit valence for atom # 22 N, 4, is greater than permitted
+[03:14:25] Can't kekulize mol.  Unkekulized atoms: 9 10 11 12 13
+[03:14:25] Can't kekulize mol.  Unkekulized atoms: 9 10 11 12 13
+[03:14:26] Explicit valence for atom # 24 N, 4, is greater than permitted
+[03:14:31] Can't kekulize mol.  Unkekulized atoms: 9 10 11 12 13
+[03:14:31] Can't kekulize mol.  Unkekulized atoms: 9 10 11 12 13
+[03:14:35] Can't kekulize mol.  Unkekulized atoms: 9 10 11 12 13
+[03:14:35] Can't kekulize mol.  Unkekulized atoms: 9 10 11 12 13
+[03:14:37] non-ring atom 1 marked aromatic
+[03:14:37] non-ring atom 1 marked aromatic
+[03:14:39] Explicit valence for atom # 11 N, 4, is greater than permitted
+[03:14:40] Can't kekulize mol.  Unkekulized atoms: 28 29 30 31 34 35 36 37 38 44 45
+[03:14:40] Can't kekulize mol.  Unkekulized atoms: 28 29 30 31 34 35 36 37 38 44 45
+[03:14:47] Explicit valence for atom # 14 O, 3, is greater than permitted
+[03:14:53] Explicit valence for atom # 16 N, 4, is greater than permitted
+[03:14:53] Can't kekulize mol.  Unkekulized atoms: 20 21 22 23 25
+[03:14:53] Can't kekulize mol.  Unkekulized atoms: 20 21 22 23 25
+[03:14:58] Explicit valence for atom # 19 O, 3, is greater than permitted
+[03:15:11] Explicit valence for atom # 30 N, 4, is greater than permitted
+[03:15:14] Explicit valence for atom # 21 N, 4, is greater than permitted
+[03:15:17] Can't kekulize mol.  Unkekulized atoms: 1 2 3 4 5 6 7 30 31
+[03:15:17] Can't kekulize mol.  Unkekulized atoms: 1 2 3 4 5 6 7 30 31
+[03:15:20] Can't kekulize mol.  Unkekulized atoms: 4 5 6 7 8 9 29 30 31
+[03:15:20] Can't kekulize mol.  Unkekulized atoms: 4 5 6 7 8 9 29 30 31
+[03:15:24] Explicit valence for atom # 20 O, 3, is greater than permitted
+[03:15:29] Explicit valence for atom # 19 N, 4, is greater than permitted
+[03:15:31] Can't kekulize mol.  Unkekulized atoms: 20 21 22 23 24
+[03:15:31] Can't kekulize mol.  Unkekulized atoms: 20 21 22 23 24
+[03:15:32] Can't kekulize mol.  Unkekulized atoms: 22 23 24 25 28
+[03:15:32] Can't kekulize mol.  Unkekulized atoms: 22 23 24 25 28
+[03:15:33] Explicit valence for atom # 3 N, 4, is greater than permitted
+[03:15:34] Explicit valence for atom # 19 O, 3, is greater than permitted
+[03:15:38] Explicit valence for atom # 17 N, 4, is greater than permitted
+[03:15:38] Can't kekulize mol.  Unkekulized atoms: 4 5 7 8 9
+[03:15:38] Can't kekulize mol.  Unkekulized atoms: 4 5 7 8 9
+[03:15:40] Can't kekulize mol.  Unkekulized atoms: 9 10 11 12 13
+[03:15:40] Can't kekulize mol.  Unkekulized atoms: 9 10 11 12 13
+[03:15:42] Explicit valence for atom # 26 N, 4, is greater than permitted
+[03:15:47] Explicit valence for atom # 23 N, 4, is greater than permitted
+[03:15:48] Can't kekulize mol.  Unkekulized atoms: 9 10 11 12 13
+[03:15:48] Can't kekulize mol.  Unkekulized atoms: 9 10 11 12 13
+[03:15:52] Explicit valence for atom # 19 O, 3, is greater than permitted
+[03:16:01] Can't kekulize mol.  Unkekulized atoms: 5 6 7 8 9 10 11 12 13 23 24
+[03:16:01] Can't kekulize mol.  Unkekulized atoms: 5 6 7 8 9 10 11 12 13 23 24
+[03:16:04] Can't kekulize mol.  Unkekulized atoms: 4 5 6 7 8 28 29 30 31
+[03:16:04] Can't kekulize mol.  Unkekulized atoms: 4 5 6 7 8 28 29 30 31
+[03:16:04] Explicit valence for atom # 1 N, 4, is greater than permitted
+[03:16:05] Explicit valence for atom # 22 N, 4, is greater than permitted
+[03:16:05] Explicit valence for atom # 14 N, 4, is greater than permitted
+[03:16:07] Explicit valence for atom # 22 N, 4, is greater than permitted
+[03:16:07] Explicit valence for atom # 8 N, 4, is greater than permitted
+Graph cache: 277300 / 277349 SMILES successfully featurized
+Samples: train=195013 val=21431 test=16843
+Epoch 1/10 - DrugBAN avg loss: 1.7804 - AnchorDrugBAN avg loss: 1.4773
+  Val DrugBAN:       macro_CI=0.5138  macro_RMSE=1.7897  score=-1.2760
+  Val AnchorDrugBAN: macro_CI=0.5219  macro_RMSE=2.0923  score=-1.5704
+  [best] DrugBAN score improved → saved drugban_best.pt
+  [best] AnchorDrugBAN score improved → saved anchor_drugban_best.pt
+Epoch 2/10 - DrugBAN avg loss: 1.2733 - AnchorDrugBAN avg loss: 1.0370
+  Val DrugBAN:       macro_CI=0.4904  macro_RMSE=1.8418  score=-1.3514
+  Val AnchorDrugBAN: macro_CI=0.5265  macro_RMSE=2.0110  score=-1.4845
+  [best] AnchorDrugBAN score improved → saved anchor_drugban_best.pt
+Epoch 3/10 - DrugBAN avg loss: 1.1281 - AnchorDrugBAN avg loss: 0.9243
+  Val DrugBAN:       macro_CI=0.5051  macro_RMSE=1.7611  score=-1.2561
+  Val AnchorDrugBAN: macro_CI=0.5211  macro_RMSE=2.2238  score=-1.7026
+  [best] DrugBAN score improved → saved drugban_best.pt
+Epoch 4/10 - DrugBAN avg loss: 1.0136 - AnchorDrugBAN avg loss: 0.8403
+  Val DrugBAN:       macro_CI=0.5167  macro_RMSE=1.7855  score=-1.2688
+  Val AnchorDrugBAN: macro_CI=0.5378  macro_RMSE=2.0773  score=-1.5396
+Epoch 5/10 - DrugBAN avg loss: 0.9250 - AnchorDrugBAN avg loss: 0.7743
+  Val DrugBAN:       macro_CI=0.5044  macro_RMSE=1.9023  score=-1.3979
+  Val AnchorDrugBAN: macro_CI=0.5317  macro_RMSE=2.3903  score=-1.8585

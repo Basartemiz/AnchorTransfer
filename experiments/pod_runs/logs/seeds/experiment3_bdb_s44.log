@@ -1,0 +1,72 @@
+[seed_run] seed=44 exp=experiment3 dataset=bdb entry=main
+Using device: cuda  |  dataset: bdb (bindingdb_interactions.csv)
+Split proteins: train=2651 val=332 test=331
+Raygun cache: 3843 / 3314 proteins embedded
+Morgan cache: 420922 / 277349 SMILES successfully fingerprinted
+Samples: train=188283 val=20915 test=16775
+Epoch 1/10 - ConciseDTA avg loss: 2.3999 - ConciseAnchorBilinear avg loss: 1.0096
+  Val ConciseDTA:    macro_CI=0.5815  macro_RMSE=1.2305  score=-0.6491
+  Val ConciseAnchorBilinear: macro_CI=0.6307  macro_RMSE=1.1342  score=-0.5035
+  [best] ConciseDTA score improved → saved concise_dta_best.pt
+  [best] ConciseAnchorBilinear score improved → saved concise_anchor_best.pt
+Epoch 2/10 - ConciseDTA avg loss: 1.3555 - ConciseAnchorBilinear avg loss: 0.5804
+  Val ConciseDTA:    macro_CI=0.6021  macro_RMSE=1.1968  score=-0.5947
+  Val ConciseAnchorBilinear: macro_CI=0.6291  macro_RMSE=1.0888  score=-0.4596
+  [best] ConciseDTA score improved → saved concise_dta_best.pt
+  [best] ConciseAnchorBilinear score improved → saved concise_anchor_best.pt
+Epoch 3/10 - ConciseDTA avg loss: 1.2533 - ConciseAnchorBilinear avg loss: 0.4471
+  Val ConciseDTA:    macro_CI=0.6176  macro_RMSE=1.1928  score=-0.5752
+  Val ConciseAnchorBilinear: macro_CI=0.6295  macro_RMSE=1.1000  score=-0.4706
+  [best] ConciseDTA score improved → saved concise_dta_best.pt
+Epoch 4/10 - ConciseDTA avg loss: 1.2122 - ConciseAnchorBilinear avg loss: 0.3704
+  Val ConciseDTA:    macro_CI=0.6200  macro_RMSE=1.1600  score=-0.5401
+  Val ConciseAnchorBilinear: macro_CI=0.6332  macro_RMSE=1.0765  score=-0.4433
+  [best] ConciseDTA score improved → saved concise_dta_best.pt
+  [best] ConciseAnchorBilinear score improved → saved concise_anchor_best.pt
+Epoch 5/10 - ConciseDTA avg loss: 1.1715 - ConciseAnchorBilinear avg loss: 0.3243
+  Val ConciseDTA:    macro_CI=0.6098  macro_RMSE=1.1541  score=-0.5443
+  Val ConciseAnchorBilinear: macro_CI=0.6360  macro_RMSE=1.0840  score=-0.4480
+Epoch 6/10 - ConciseDTA avg loss: 1.1251 - ConciseAnchorBilinear avg loss: 0.2887
+  Val ConciseDTA:    macro_CI=0.6219  macro_RMSE=1.1632  score=-0.5414
+  Val ConciseAnchorBilinear: macro_CI=0.6324  macro_RMSE=1.0683  score=-0.4359
+  [best] ConciseAnchorBilinear score improved → saved concise_anchor_best.pt
+Epoch 7/10 - ConciseDTA avg loss: 1.0355 - ConciseAnchorBilinear avg loss: 0.2608
+  Val ConciseDTA:    macro_CI=0.6258  macro_RMSE=1.1480  score=-0.5222
+  Val ConciseAnchorBilinear: macro_CI=0.6240  macro_RMSE=1.0932  score=-0.4692
+  [best] ConciseDTA score improved → saved concise_dta_best.pt
+Epoch 8/10 - ConciseDTA avg loss: 0.9453 - ConciseAnchorBilinear avg loss: 0.2379
+  Val ConciseDTA:    macro_CI=0.6234  macro_RMSE=1.1435  score=-0.5201
+  Val ConciseAnchorBilinear: macro_CI=0.6204  macro_RMSE=1.0864  score=-0.4660
+  [best] ConciseDTA score improved → saved concise_dta_best.pt
+Epoch 9/10 - ConciseDTA avg loss: 0.8843 - ConciseAnchorBilinear avg loss: 0.2214
+  Val ConciseDTA:    macro_CI=0.6348  macro_RMSE=1.1326  score=-0.4978
+  Val ConciseAnchorBilinear: macro_CI=0.6215  macro_RMSE=1.0870  score=-0.4655
+  [best] ConciseDTA score improved → saved concise_dta_best.pt
+Epoch 10/10 - ConciseDTA avg loss: 0.8357 - ConciseAnchorBilinear avg loss: 0.2066
+  Val ConciseDTA:    macro_CI=0.6331  macro_RMSE=1.1438  score=-0.5107
+  Val ConciseAnchorBilinear: macro_CI=0.6272  macro_RMSE=1.0655  score=-0.4383
+========================================================================
+TEST SET (best checkpoints)
+  ConciseDTA:    macro_CI=0.5448  macro_RMSE=1.4183  macro_AUROC=0.7476 (n=75)  score=-0.8734
+  ConciseAnchorBilinear: macro_CI=0.5766  macro_RMSE=1.3479  macro_AUROC=0.8032 (n=75)  score=-0.7713
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown:
+           bin |      n |  DTA RMSE  DTA CI |  Anc RMSE  Anc CI
+         ≤7.47 |   4231 |    1.3300  0.5527 |    1.1946  0.6006
+  (7.47, 8.06] |   4235 |    1.3765  0.5793 |    1.2577  0.6293
+  (8.06, 8.51] |   4116 |    1.3305  0.5899 |    1.2670  0.6122
+         >8.51 |   4193 |    1.3215  0.7046 |    1.2821  0.7233
+========================================================================
+Oracle test samples: 30760 (drugs with oracle anchor: 26992)
+========================================================================
+TEST SET — ORACLE ANCHORS (strongest test binder per drug, upper bound)
+  ConciseDTA:    macro_CI=0.5263  macro_RMSE=1.4415  macro_AUROC=0.6309 (n=79)  score=-0.9152
+  ConciseAnchorBilinear: macro_CI=0.5613  macro_RMSE=1.3167  macro_AUROC=0.7141 (n=79)  score=-0.7554
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown (oracle):
+           bin |      n |  DTA RMSE  DTA CI |  Anc RMSE  Anc CI
+         ≤7.30 |   7691 |    1.3192  0.5376 |    1.2120  0.5868
+  (7.30, 7.88] |   7690 |    1.3263  0.5645 |    1.2714  0.6092
+  (7.88, 8.48] |   7695 |    1.2642  0.5870 |    1.1989  0.6074
+         >8.48 |   7684 |    1.6800  0.5551 |    1.4600  0.5935
+========================================================================

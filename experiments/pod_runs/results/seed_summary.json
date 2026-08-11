@@ -304,5 +304,569 @@
     "anchor_std": 0.03095136507490418,
     "delta": -0.04396,
     "t": -5.669045139605379
+  },
+  "experiment2|dtc|Davis-OOD|auroc": {
+    "baseline_model": "DrugBAN",
+    "anchor_model": "AnchorDrugBAN",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 0.50664,
+    "baseline_std": 0.07477397943135031,
+    "anchor_mean": 0.56692,
+    "anchor_std": 0.06427746105751224,
+    "delta": 0.060280000000000014,
+    "t": 0.9862294844150088
+  },
+  "experiment2|dtc|Davis-OOD|ci": {
+    "baseline_model": "DrugBAN",
+    "anchor_model": "AnchorDrugBAN",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 0.5090999999999999,
+    "baseline_std": 0.018802260502397045,
+    "anchor_mean": 0.49716000000000005,
+    "anchor_std": 0.017992581804732757,
+    "delta": -0.011939999999999996,
+    "t": -0.9783907930641449
+  },
+  "experiment2|dtc|Davis-OOD|rmse": {
+    "baseline_model": "DrugBAN",
+    "anchor_model": "AnchorDrugBAN",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 2.0232799999999997,
+    "baseline_std": 0.3068347877930402,
+    "anchor_mean": 2.26676,
+    "anchor_std": 0.6498628993872476,
+    "delta": 0.24348000000000006,
+    "t": 0.6928563750940666
+  },
+  "experiment2|dtc|Davis-oracle|auroc": {
+    "baseline_model": "DrugBAN",
+    "anchor_model": "AnchorDrugBAN",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 0.50488,
+    "baseline_std": 0.07229257914890021,
+    "anchor_mean": 0.5419,
+    "anchor_std": 0.09297139344981338,
+    "delta": 0.03702000000000001,
+    "t": 0.5422708662964995
+  },
+  "experiment2|dtc|Davis-oracle|ci": {
+    "baseline_model": "DrugBAN",
+    "anchor_model": "AnchorDrugBAN",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 0.50742,
+    "baseline_std": 0.019768965577389216,
+    "anchor_mean": 0.49286,
+    "anchor_std": 0.02224102066003266,
+    "delta": -0.014559999999999995,
+    "t": -0.9282766014998306
+  },
+  "experiment2|dtc|Davis-oracle|rmse": {
+    "baseline_model": "DrugBAN",
+    "anchor_model": "AnchorDrugBAN",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 2.03428,
+    "baseline_std": 0.3011187008473569,
+    "anchor_mean": 2.4018800000000002,
+    "anchor_std": 0.6219014729038675,
+    "delta": 0.3676000000000001,
+    "t": 1.0962209650434858
+  },
+  "experiment2|dtc|Oracle|auroc": {
+    "baseline_model": "DrugBAN",
+    "anchor_model": "AnchorDrugBAN",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 0.56474,
+    "baseline_std": 0.0428480804704248,
+    "anchor_mean": 0.56172,
+    "anchor_std": 0.043178547914444726,
+    "delta": -0.0030199999999999893,
+    "t": -0.10829344706910297
+  },
+  "experiment2|dtc|Oracle|ci": {
+    "baseline_model": "DrugBAN",
+    "anchor_model": "AnchorDrugBAN",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 0.5188200000000001,
+    "baseline_std": 0.013715575088198116,
+    "anchor_mean": 0.5269199999999999,
+    "anchor_std": 0.018079186928620462,
+    "delta": 0.008100000000000041,
+    "t": 0.8933467328027281
+  },
+  "experiment2|dtc|Oracle|rmse": {
+    "baseline_model": "DrugBAN",
+    "anchor_model": "AnchorDrugBAN",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 1.58526,
+    "baseline_std": 0.10042217384621782,
+    "anchor_mean": 1.6262999999999999,
+    "anchor_std": 0.20575250909770218,
+    "delta": 0.04104000000000001,
+    "t": 0.38510608802377866
+  },
+  "experiment2|dtc|Test|auroc": {
+    "baseline_model": "DrugBAN",
+    "anchor_model": "AnchorDrugBAN",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 0.58206,
+    "baseline_std": 0.05018508742644571,
+    "anchor_mean": 0.6292599999999999,
+    "anchor_std": 0.10392397702166715,
+    "delta": 0.047200000000000006,
+    "t": 0.8452413856049589
+  },
+  "experiment2|dtc|Test|ci": {
+    "baseline_model": "DrugBAN",
+    "anchor_model": "AnchorDrugBAN",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 0.5207599999999999,
+    "baseline_std": 0.015521050222198256,
+    "anchor_mean": 0.5095799999999999,
+    "anchor_std": 0.023675979388401252,
+    "delta": -0.011180000000000013,
+    "t": -0.7538644217859473
+  },
+  "experiment2|dtc|Test|rmse": {
+    "baseline_model": "DrugBAN",
+    "anchor_model": "AnchorDrugBAN",
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "baseline_mean": 1.8335000000000001,
+    "baseline_std": 0.13259949094924914,
+    "anchor_mean": 2.04896,
+    "anchor_std": 0.37227123579454807,
+    "delta": 0.21545999999999998,
+    "t": 1.3488264215026995
+  },
+  "experiment3|bdb|Davis-OOD|auroc": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 0.8873000000000001,
+    "baseline_std": 0.01744734936888697,
+    "anchor_mean": 0.9429,
+    "anchor_std": 0.006486139067272607,
+    "delta": 0.05560000000000002,
+    "t": 8.332608089027211
+  },
+  "experiment3|bdb|Davis-OOD|ci": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 0.6271,
+    "baseline_std": 0.008150460109711568,
+    "anchor_mean": 0.6423666666666666,
+    "anchor_std": 0.005604759881862335,
+    "delta": 0.015266666666666687,
+    "t": 8.120516319030857
+  },
+  "experiment3|bdb|Davis-OOD|rmse": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 0.7592666666666666,
+    "baseline_std": 0.04109809403528751,
+    "anchor_mean": 0.6732,
+    "anchor_std": 0.005567764362830027,
+    "delta": -0.08606666666666662,
+    "t": -4.035380029360044
+  },
+  "experiment3|bdb|Davis-oracle|auroc": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 0.8411,
+    "baseline_std": 0.019659348921060416,
+    "anchor_mean": 0.8945,
+    "anchor_std": 0.015228591530407535,
+    "delta": 0.0534,
+    "t": 17.936707075143776
+  },
+  "experiment3|bdb|Davis-oracle|ci": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 0.6121,
+    "baseline_std": 0.007858116822750894,
+    "anchor_mean": 0.6194000000000001,
+    "anchor_std": 0.005922837157984356,
+    "delta": 0.007299999999999973,
+    "t": 4.4344341963847
+  },
+  "experiment3|bdb|Davis-oracle|rmse": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 0.8502666666666667,
+    "baseline_std": 0.03943923596284965,
+    "anchor_mean": 0.7917666666666667,
+    "anchor_std": 0.03811198411698521,
+    "delta": -0.058499999999999996,
+    "t": -4.326296707242325
+  },
+  "experiment3|bdb|Oracle|auroc": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 0.6531,
+    "baseline_std": 0.03241666238217625,
+    "anchor_mean": 0.6926333333333332,
+    "anchor_std": 0.02234666268894156,
+    "delta": 0.03953333333333331,
+    "t": 1.7024141699605402
+  },
+  "experiment3|bdb|Oracle|ci": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 0.5371333333333334,
+    "baseline_std": 0.016563312873134218,
+    "anchor_mean": 0.5419,
+    "anchor_std": 0.017419242233805716,
+    "delta": 0.0047666666666666595,
+    "t": 0.29802469432703366
+  },
+  "experiment3|bdb|Oracle|rmse": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 1.4148000000000003,
+    "baseline_std": 0.03887454179794275,
+    "anchor_mean": 1.3578333333333334,
+    "anchor_std": 0.03722369317159883,
+    "delta": -0.056966666666666756,
+    "t": -1.5862423341958436
+  },
+  "experiment3|bdb|Test|auroc": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 0.7793666666666667,
+    "baseline_std": 0.03190083593471074,
+    "anchor_mean": 0.8081333333333333,
+    "anchor_std": 0.00650102556011998,
+    "delta": 0.028766666666666645,
+    "t": 1.9298472838070238
+  },
+  "experiment3|bdb|Test|ci": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 0.5520333333333333,
+    "baseline_std": 0.022154081640486323,
+    "anchor_mean": 0.5685666666666667,
+    "anchor_std": 0.013655157755710268,
+    "delta": 0.01653333333333336,
+    "t": 0.8055292239250695
+  },
+  "experiment3|bdb|Test|rmse": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 1.3895,
+    "baseline_std": 0.02534423011259164,
+    "anchor_mean": 1.3473333333333333,
+    "anchor_std": 0.023955027308131684,
+    "delta": -0.04216666666666661,
+    "t": -1.9469074105975182
+  },
+  "experiment3|dtc|Davis-OOD|auroc": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 0.7920333333333334,
+    "baseline_std": 0.0029143323992526023,
+    "anchor_mean": 0.8780999999999999,
+    "anchor_std": 0.0634003943205403,
+    "delta": 0.08606666666666667,
+    "t": 2.24968462254946
+  },
+  "experiment3|dtc|Davis-OOD|ci": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 0.6193333333333333,
+    "baseline_std": 0.0029501412395567406,
+    "anchor_mean": 0.6315,
+    "anchor_std": 0.011107204868912755,
+    "delta": 0.012166666666666695,
+    "t": 1.54101747336336
+  },
+  "experiment3|dtc|Davis-OOD|rmse": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 0.7791666666666668,
+    "baseline_std": 0.025874762478781028,
+    "anchor_mean": 0.6949333333333333,
+    "anchor_std": 0.01285081060997058,
+    "delta": -0.08423333333333334,
+    "t": -8.259052019851975
+  },
+  "experiment3|dtc|Davis-oracle|auroc": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 0.8025333333333333,
+    "baseline_std": 0.005713434460404168,
+    "anchor_mean": 0.9024000000000001,
+    "anchor_std": 0.010194606417120758,
+    "delta": 0.0998666666666667,
+    "t": 11.228930999262055
+  },
+  "experiment3|dtc|Davis-oracle|ci": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 0.6087,
+    "baseline_std": 0.0019078784028339023,
+    "anchor_mean": 0.6222666666666666,
+    "anchor_std": 0.0033857544703261404,
+    "delta": 0.013566666666666652,
+    "t": 4.467674526707071
+  },
+  "experiment3|dtc|Davis-oracle|rmse": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 0.8191666666666667,
+    "baseline_std": 0.03550004694832575,
+    "anchor_mean": 0.7104333333333334,
+    "anchor_std": 0.03380493060684094,
+    "delta": -0.1087333333333333,
+    "t": -14.522612959245247
+  },
+  "experiment3|dtc|Oracle|auroc": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 0.7168000000000001,
+    "baseline_std": 0.00045825756949559413,
+    "anchor_mean": 0.7816000000000001,
+    "anchor_std": 0.02566144968625118,
+    "delta": 0.06480000000000001,
+    "t": 4.309542097847273
+  },
+  "experiment3|dtc|Oracle|ci": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 0.5518,
+    "baseline_std": 0.010950342460398228,
+    "anchor_mean": 0.5950000000000001,
+    "anchor_std": 0.010112863096077198,
+    "delta": 0.04320000000000005,
+    "t": 3.557152292117565
+  },
+  "experiment3|dtc|Oracle|rmse": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 1.3558333333333332,
+    "baseline_std": 0.02613050579941628,
+    "anchor_mean": 1.1646,
+    "anchor_std": 0.05045066897475196,
+    "delta": -0.19123333333333328,
+    "t": -11.624870087275493
+  },
+  "experiment3|dtc|Test|auroc": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 0.7801666666666667,
+    "baseline_std": 0.011088883322198555,
+    "anchor_mean": 0.8460000000000001,
+    "anchor_std": 0.0202763408927745,
+    "delta": 0.06583333333333334,
+    "t": 6.712292136324332
+  },
+  "experiment3|dtc|Test|ci": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 0.5525666666666665,
+    "baseline_std": 0.005142308171758421,
+    "anchor_mean": 0.6008,
+    "anchor_std": 0.014120552397126661,
+    "delta": 0.04823333333333335,
+    "t": 6.788416582729581
+  },
+  "experiment3|dtc|Test|rmse": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "baseline_mean": 1.4377666666666666,
+    "baseline_std": 0.028146106894796945,
+    "anchor_mean": 1.367233333333333,
+    "anchor_std": 0.025354749719398495,
+    "delta": -0.0705333333333334,
+    "t": -2.7610119475747297
   }
 }

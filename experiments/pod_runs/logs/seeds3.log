@@ -1,0 +1,26 @@
+=== exp2 sweep finished, starting exp3 seeds 05:24:21 ===
+=== experiment3 dtc seed=42 train 05:24:21 ===
+experiment3_dtc_s42 train exit=0
+=== experiment3 dtc seed=42 davis 06:04:46 ===
+experiment3_dtc_s42 davis exit=0
+=== experiment3 dtc seed=43 train 06:07:28 ===
+experiment3_dtc_s43 train exit=0
+=== experiment3 dtc seed=43 davis 06:47:52 ===
+experiment3_dtc_s43 davis exit=0
+=== experiment3 dtc seed=44 train 06:50:38 ===
+experiment3_dtc_s44 train exit=0
+=== experiment3 dtc seed=44 davis 07:32:42 ===
+experiment3_dtc_s44 davis exit=0
+=== experiment3 bdb seed=42 train 07:35:31 ===
+experiment3_bdb_s42 train exit=0
+=== experiment3 bdb seed=42 davis 08:21:28 ===
+experiment3_bdb_s42 davis exit=0
+=== experiment3 bdb seed=43 train 08:24:37 ===
+experiment3_bdb_s43 train exit=0
+=== experiment3 bdb seed=43 davis 09:08:41 ===
+experiment3_bdb_s43 davis exit=0
+=== experiment3 bdb seed=44 train 09:11:52 ===
+experiment3_bdb_s44 train exit=0
+=== experiment3 bdb seed=44 davis 09:55:44 ===
+experiment3_bdb_s44 davis exit=0
+SEEDS3_DONE 09:58:54
