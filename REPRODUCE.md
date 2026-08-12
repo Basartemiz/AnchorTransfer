@@ -65,6 +65,22 @@ Expected, on any machine and in any process: `2262 282 283 6412f7a2b391`.
 Training itself is seeded only through `experiments/seed_run.py`; the
 entrypoints do not take a `--seed` flag.
 
+Two independent knobs control repetition, and they answer different questions:
+
+| Variable | Default | Varying it measures |
+|---|---|---|
+| `SEED` (via `seed_run.py`) | — | initialisation variance, split held fixed |
+| `SPLIT_SEED` | `42` | dependence on which proteins were held out, seed held fixed |
+
+`SPLIT_SEED=42` reproduces the partition every per-seed table uses. Splits 1 and
+2 give `2263 282 282` and `2256 282 289`; consecutive draws share only 27 and 16
+of roughly 283 test proteins. Never pool the two kinds of spread — the paper
+reports them separately.
+
+When running a non-default split, redirect the checkpoints so the seed-42 run is
+not overwritten: `EXP1_CHECKPOINTS` and `EXP3_CHECKPOINTS` override the
+destination directory (`EXP2_CHECKPOINTS` does the same for experiment 2).
+
 ## 4. Table by table
 
 `main` emits the **Test** and **Oracle** rows; `eval_davis` emits **Davis-OOD**
@@ -72,7 +88,7 @@ entrypoints do not take a `--seed` flag.
 written by `main`, so it must run before the next seed overwrites
 `checkpoints/`.
 
-### Table 1 — Experiment 1 (5 seeds, DTC and BDB)
+### Paper Table 3 — Experiment 1 (5 seeds, DTC and BDB)
 
 ```bash
 mkdir -p logs/seeds
@@ -90,14 +106,14 @@ PYTHONPATH=src:. python experiments/summarize_seeds.py logs/seeds results/seed_s
 `summarize_seeds.py` prints mean ± std and the paired $t$ over seeds, which is
 what the table reports.
 
-### Table 2 — Experiment 2 (DTC)
+### Paper Table 4 — Experiment 2 (DTC)
 
 Same loop with `EXP=experiment2`, `ds=dtc`. Budget roughly 4 h per seed: two
 models train in one loop and the anchor model runs its shared attention twice,
 so the step is dominated by many small GPU kernels launched from one Python
 thread. `num_workers` does not help — data loading is not the bottleneck.
 
-### Table 3 — Experiment 3 (DTC and BDB)
+### Paper Table 5 — Experiment 3 (DTC and BDB)
 
 ```bash
 for ds in dtc bdb; do
@@ -107,9 +123,64 @@ done
 ```
 
 Run DTC first and archive `experiments/experiment3/checkpoints/` before the BDB
-run overwrites it — Table 4 needs the DTC checkpoints.
+run overwrites it — Table 7 needs the DTC checkpoints.
 
-### Table 4 — Experiment 4 (activity cliffs)
+### Paper Table 6 — three protein partitions, with the retrieval floor
+
+Two parts. First, repeat experiments 1 and 3 on the extra partitions, holding
+the training seed at 42 so the partition is the only thing that moves:
+
+```bash
+mkdir -p logs/splits
+for split in 1 2; do
+  for ds in dtc bdb; do
+    EXP1_CHECKPOINTS=experiments/experiment1/ckpt_split${split}_${ds} \
+    SPLIT_SEED=$split SEED=42 EXP=experiment1 DS=$ds MOD=main \
+      PYTHONPATH=src:. python experiments/seed_run.py > logs/splits/experiment1_${ds}_split${split}.log 2>&1
+    EXP1_CHECKPOINTS=experiments/experiment1/ckpt_split${split}_${ds} \
+    SPLIT_SEED=$split SEED=42 EXP=experiment1 DS=$ds MOD=eval_davis \
+      PYTHONPATH=src:. python experiments/seed_run.py > logs/splits/experiment1_${ds}_split${split}_davis.log 2>&1
+  done
+done
+```
+
+Same loop with `EXP=experiment3`, `EXP3_CHECKPOINTS`, and the 3.12 interpreter.
+The seed-42 partition is already covered by the per-seed runs above: copy
+`logs/seeds/experiment{1,3}_${ds}_s42*.log` into `logs/splits/` renamed to
+`_split42`, then
+
+```bash
+PYTHONPATH=src:. python experiments/summarize_seeds.py logs/splits results/split_summary.json
+```
+
+`summarize_seeds.py` reads both the `_s{n}` and `_split{n}` naming, so the same
+paired $t$-test aggregates either axis. Keep the two directories separate — a
+directory holding both namings would count the shared seed-42 run twice.
+
+Second, the retrieval-only floor. It has no training and no seed, so one run per
+dataset and partition determines it:
+
+```bash
+for ds in dtc bdb; do
+  for split in 42 1 2; do
+    SPLIT_SEED=$split PYTHONPATH=src:. python -m experiments.experiment1.eval_retrieval --dataset $ds
+    SPLIT_SEED=$split PYTHONPATH=src:. .venv312/bin/python -m experiments.experiment3.eval_retrieval --dataset $ds
+  done
+done
+```
+
+Both scripts call the same `build_davis_dataset()` the trained models are scored
+on and push the predictions through the same `aggregate_records()`, so the floor
+is measured on identical samples with identical metric code rather than on a set
+rebuilt from the same steps. No GPU is needed once the embedding caches exist;
+`CUDA_VISIBLE_DEVICES=""` lets these run beside a training job.
+
+The two experiments give different floors (Table 6 reports both) because they
+evaluate different Davis subsets — ESM-2 drops sequences over 1,022 residues
+where Raygun truncates them, so the same control scores 2,992 samples in
+experiment 1 and more in experiment 3.
+
+### Paper Table 7 — Experiment 4 (activity cliffs)
 
 ```bash
 EXP3_CHECKPOINTS=results/ckpt_experiment3_dtc \

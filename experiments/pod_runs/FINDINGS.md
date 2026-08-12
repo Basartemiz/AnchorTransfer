@@ -97,6 +97,11 @@ Davis-oracle shift is **+0.046 on DTC** (anchor +0.059, control +0.013) but
 **−0.001 on BDB** (anchor −0.046, control −0.045). It should not be presented as
 a general property.
 
+> **Superseded (2026-08-11).** The +0.046 is a single-seed figure. Over three
+> seeds the anchor-attributable shift is **+0.014 on DTC** and **−0.002 on BDB**
+> — averaging removes most of it. The oracle condition is a weak probe and the
+> mechanism claim now rests on the random-anchor control instead. See §6.
+
 **Checkpoint selection is working correctly** here — `CI − RMSE` picked the true
 per-epoch optimum for both models (epoch 2 and 3). The early stop is genuine
 overfitting, not the selection stall seen in the earlier local run. The valid
@@ -136,28 +141,138 @@ ConciseAnchor ranks genuine activity cliffs correctly **81%** of the time with a
 real Δ-correlation, while CoNCISE sits at chance. The `identity≥0.9` row should
 be dropped — after filtering there is nothing left in it to measure.
 
-## 5. Experiment 2 — in progress
+## 5. Experiment 2 — inconclusive over 5 seeds
 
-DTC, 3 seeds (42–44), ~4 h per run. AnchorDrugBAN is slow for a structural
-reason: two models trained in one loop, and the anchor model runs the shared
-attention twice, producing many small GPU kernels launched from one Python
-thread. Adding `num_workers=12` did **not** help — the workers sit idle at 0.2%
-CPU while the main process stays pegged, so data loading was not the bottleneck.
+DTC, seeds 42–46, ~4 h per run. **No metric on any split separates the two
+models: every |t| < 1.4.** The point estimates also disagree with each other —
+AUROC leans anchor by 0.047–0.060 while RMSE favours plain on all four splits —
+and single seeds reverse the ordering (Davis-OOD: one seed +0.163 AUROC for the
+anchor, another −0.060).
+
+Two protocol properties explain the instability, neither about anchoring:
+- **Asymmetric checkpoint selection.** `CI − RMSE` stops improving for DrugBAN
+  around epoch 2 while AnchorDrugBAN keeps improving to epoch 10, so the arms
+  are not trained to comparable points.
+- **Matching the epoch does not repair it.** At a common final epoch both models
+  fall *below chance* on Davis (AUROC 0.333 and 0.452) — 10 epochs is past the
+  useful range for this architecture.
+
+Reported as inconclusive, not as evidence either way.
+
+AnchorDrugBAN is slow for a structural reason: two models trained in one loop,
+and the anchor model runs the shared attention twice, producing many small GPU
+kernels launched from one Python thread. Adding `num_workers=12` did **not**
+help — the workers sit idle at 0.2% CPU while the main process stays pegged, so
+data loading was never the bottleneck.
+
+**Caveat that belongs in the paper.** This is not upstream DrugBAN. The port
+swaps DGL/dgllife for PyG (`drugban.py` docstring), uses a hand-rolled **9-dim**
+atom featurizer where upstream uses dgllife's 74-dim `CanonicalAtomFeaturizer`
+(`drug_encoder.py:12`), and trains MSE regression on pKi where upstream is a BCE
+binary classifier. The comparison is internally controlled — both arms share the
+featurizer — but the absolute level is not DrugBAN's, and the null result is
+therefore not evidence about DrugBAN.
 
 ---
 
-## Recommendations for the paper
+# Follow-up run — 2026-08-11
 
-1. **Re-centre Table 1 on distribution shift.** The anchor gives nothing
-   in-distribution and a large, significant gain on Davis. Report mean ± std
-   over seeds; the std column is itself an argument.
-2. **Rebuild the experiment 4 section.** Filter identical-sequence pairs, drop
-   the `≥0.9` bin, and report the 81% figure. Note the Davis limitation
-   (mutants carry the wild-type sequence) explicitly — a referee who finds this
-   unaided will not be kind.
-3. **Qualify the oracle claim** as DTC-specific; it does not hold on BDB.
-4. **State the split fix.** The published numbers came from an unpinned split;
-   the protocol is only reproducible after the `sorted()` change.
-5. Note that exp1 and exp3 evaluate different Davis subsets (2992 vs 7020
-   samples) because exp1 drops sequences >1022 residues while exp3 truncates —
-   they are not directly comparable side by side.
+Logs in `logs/splits/` and `logs/retrieval/`, parsed metrics in
+`results/split_summary.json`.
+
+## 6. Retrieval-only floor — the control the baselines were missing
+
+The anchor models get a retrieved training protein **and its measured pKi** at
+test time; the anchor-blind baselines get neither. Beating them therefore does
+not show that *comparing against* the anchor helps. The floor consumes exactly
+that information and nothing else:
+
+```
+pred(query_protein, drug) = pKi(anchor(drug), drug)
+```
+
+Untrained, deterministic given the split, and non-trivial under per-protein
+metrics (it ranks drugs within a protein by their analogue's affinity).
+
+**Davis-OOD, mean over three partitions:**
+
+| Exp | Source | Model | CI | RMSE | AUROC |
+|---|---|---|---|---|---|
+| 1 | DTC | plain | 0.504 | 1.329 | 0.509 |
+| 1 | DTC | **retrieval** | 0.550 | 3.446 | 0.676 |
+| 1 | DTC | AnchorMLP | 0.557 | 1.018 | 0.740 |
+| 1 | BDB | plain | 0.510 | 1.740 | 0.587 |
+| 1 | BDB | **retrieval** | 0.528 | 3.450 | 0.644 |
+| 1 | BDB | AnchorMLP | 0.541 | 1.275 | 0.689 |
+| 3 | DTC | **retrieval** | 0.564 | 3.505 | 0.707 |
+| 3 | DTC | plain | 0.640 | 0.797 | 0.864 |
+| 3 | DTC | ConciseAnchor | 0.647 | 0.730 | 0.912 |
+| 3 | BDB | **retrieval** | 0.556 | 3.521 | 0.721 |
+| 3 | BDB | plain | 0.633 | 0.762 | 0.881 |
+| 3 | BDB | ConciseAnchor | 0.640 | 0.697 | 0.924 |
+
+**The two architectures separate.** Retrieval's share of the anchor model's gain:
+
+| | AUROC | CI |
+|---|---|---|
+| exp1 DTC | **72%** | **87%** |
+| exp1 BDB | **55%** | **60%** |
+| exp3 DTC | 0% (floor is *below* plain) | 0% |
+| exp3 BDB | 0% | 0% |
+
+For AnchorMLP most of the ranking gain is the retrieved information, not the
+model. For ConciseAnchor the plain model clears the floor by ~0.16 AUROC, so the
+gain sits entirely above it. Rule of thumb: **adding an anchor to a baseline
+weaker than the retrieval floor mostly adds retrieval.**
+
+RMSE is the exception in both — the floor is ~3.45 everywhere, because anchors
+are strong binders by construction while most Davis pairs sit at the pKi=5
+detection limit. Calibration is the part no retrieval step performs.
+
+## 7. Three protein partitions
+
+Split seeds 42/1/2 at fixed training seed 42, so the partition is the only
+moving part. Partitions overlap little (27 and 16 of ~283 test proteins shared
+between consecutive draws).
+
+- **Experiment 1 holds completely.** Anchor wins all three Davis-OOD metrics in
+  all six source-partition runs, no sign reversal; BDB RMSE t = −51. Still inert
+  in-distribution (|t| ≤ 2.2).
+- **Experiment 3 narrows.** AUROC (+0.047, +0.043) and RMSE (−0.067, −0.066)
+  hold, but **the CI gains do not** (t = 1.05 and 1.37), and individual
+  partitions reverse sign on three in-distribution cells. "Wins in all 24 cells"
+  is true of the seed-42 partition only, not of the method.
+
+These t values measure **partition variance at fixed initialisation** and are
+not comparable with the seed-based tests. Reported separately, never pooled.
+
+## 8. A refactor bug the smoke test caught
+
+Extracting `build_davis_dataset()` out of `eval_davis.main()` left `davis_df`
+referenced in main's oracle block but defined only inside the new function.
+`py_compile` passed — it is a runtime `NameError`, not a syntax error. A CPU
+smoke run against archived checkpoints caught it ~7 minutes before the live
+sweep would have hit it and lost experiment 3's split-2 Davis row. An AST scan
+for undefined names in function bodies now covers the same class of mistake.
+
+---
+
+## Status of the earlier recommendations
+
+| # | Recommendation | Status |
+|---|---|---|
+| 1 | Re-centre Table 1 on distribution shift, report mean ± std | done |
+| 2 | Rebuild experiment 4: filter identical-sequence pairs, drop ≥0.9, report 81% | done |
+| 3 | Qualify the oracle claim | done — went further, the claim was dropped (§3 note) |
+| 4 | State the split fix | done |
+| 5 | Note exp1/exp3 evaluate different Davis subsets | done |
+
+## Open
+
+1. **The DrugBAN port's featurizer** (§5 caveat). Either lift it to the 74-dim
+   canonical featurizer and re-run experiment 2, or state the deviation and
+   downgrade the claim to "we could not measure an effect with *our port*".
+   Currently the paper does the latter; the former would make it evidence.
+2. **Retrieval floor for experiment 2.** Not computed — exp2 is inconclusive
+   either way, so it would not change the conclusion.
+3. **Multi-split for experiment 2.** Same reasoning.
