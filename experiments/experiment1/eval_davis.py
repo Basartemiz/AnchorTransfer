@@ -66,22 +66,15 @@ def get_non_homologs(
     }
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", choices=list(INTERACTIONS_PATHS), default="dtc",
-                        help="Training-source anchors + OOD split to replay (dtc or bdb).")
-    parser.add_argument("--random-anchor", action="store_true",
-                        help="Permute the drug->anchor assignment. The anchor pool, the "
-                             "number of samples and every embedding stay identical; only "
-                             "the correspondence between a drug and a protein known to "
-                             "bind it is destroyed. If scores hold up under this, the "
-                             "model is using the second protein slot as capacity rather "
-                             "than reading the anchor relationship.")
-    args = parser.parse_args()
-    interactions_path = INTERACTIONS_PATHS[args.dataset]
+def build_davis_dataset(dataset: str, random_anchor: bool = False) -> AnchorTransferDataset:
+    """Build the Davis-OOD evaluation set: OOD protein filter + Tanimoto anchors.
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Using device: {device}  |  anchors from: {args.dataset} ({interactions_path.name})")
+    Split out of main() so the retrieval-only baseline (eval_retrieval.py) scores
+    the exact same samples as the two trained models rather than a set rebuilt
+    from the same steps.
+    """
+    interactions_path = INTERACTIONS_PATHS[dataset]
+    print(f"Anchors from: {dataset} ({interactions_path.name})")
 
     # Training interactions — replay the OOD split and build the anchor map.
     interactions_df = pd.read_csv(interactions_path)
@@ -130,7 +123,7 @@ def main() -> None:
     )
     print(f"Davis drugs: {len(davis_drugs)} total → {len(drug_to_anchor)} with Tanimoto anchors (≥0.7 similarity)")
 
-    if args.random_anchor:
+    if random_anchor:
         # Permute which drug gets which anchor. Keys, pool, and per-drug pKi
         # bookkeeping are preserved so the evaluated sample set is unchanged;
         # only drug<->anchor correspondence is broken.
@@ -166,8 +159,28 @@ def main() -> None:
         drug_to_anchor_pki=drug_to_anchor_pki,
         drug_to_second_pki=drug_to_second_pki,
     )
-    davis_loader = DataLoader(davis_ds, batch_size=64, shuffle=False, collate_fn=collate_fn)
     print(f"Davis-OOD evaluable samples: {len(davis_ds)}")
+    return davis_ds
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset", choices=list(INTERACTIONS_PATHS), default="dtc",
+                        help="Training-source anchors + OOD split to replay (dtc or bdb).")
+    parser.add_argument("--random-anchor", action="store_true",
+                        help="Permute the drug->anchor assignment. The anchor pool, the "
+                             "number of samples and every embedding stay identical; only "
+                             "the correspondence between a drug and a protein known to "
+                             "bind it is destroyed. If scores hold up under this, the "
+                             "model is using the second protein slot as capacity rather "
+                             "than reading the anchor relationship.")
+    args = parser.parse_args()
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Using device: {device}")
+
+    davis_ds = build_davis_dataset(args.dataset, random_anchor=args.random_anchor)
+    davis_loader = DataLoader(davis_ds, batch_size=64, shuffle=False, collate_fn=collate_fn)
 
     # Load best checkpoints from training.
     esm_dta_model = EsmDTAModel(esm2_dim=1280, prot_proj_dim=128).to(device)

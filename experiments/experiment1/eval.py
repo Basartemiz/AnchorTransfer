@@ -53,6 +53,20 @@ def evaluate_model(
                     ),
                 })
 
+    protein_metrics = aggregate_records(records)
+
+    if return_records:
+        return protein_metrics, records
+    return protein_metrics
+
+
+def aggregate_records(records: list[dict]) -> dict[str, dict]:
+    """Per-protein metrics from (protein_id, drug_id, pred, true) records.
+
+    Split out of evaluate_model so predictors that are not torch models — the
+    retrieval-only baseline in eval_retrieval.py — score through exactly this
+    code rather than a second copy of it.
+    """
     # Group by protein for per-protein metrics. Drugs are de-duplicated per protein
     # (last prediction wins) to match the prior behavior.
     by_protein: dict[str, dict[str, list[float]]] = {}
@@ -78,8 +92,6 @@ def evaluate_model(
         if auroc == auroc:  # not NaN — both classes present
             protein_metrics[protein_id]["auroc"] = auroc
 
-    if return_records:
-        return protein_metrics, records
     return protein_metrics
 
 
