@@ -23,14 +23,13 @@ Trained on DTC and BindingDB, tested on Davis.
 
 - `experiments/` — the paper's experiments
 - `src/anchor_transfer/` — the models
-- `revised_paper/` — paper source
 
 ## Reproduce
 
 See [`REPRODUCE.md`](REPRODUCE.md).
 
-> Note: the v5 PDF describes the anchor retrieval slightly wrong. The corrected
-> text is in `revised_paper/`.
+> Note: the v5 PDF describes the anchor retrieval slightly wrong. A corrected
+> version will follow.
 
 ## Citation
 

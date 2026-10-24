@@ -15,7 +15,7 @@ drugban_graph_cache.*
 !scripts/data/
 !scripts/data/*.py
 
-# LaTeX build artifacts (main.pdf and supplementary.pdf are tracked)
+# LaTeX build artifacts
 *.aux
 *.fls
 *.fdb_latexmk
@@ -24,3 +24,7 @@ drugban_graph_cache.*
 *.toc
 *.synctex.gz
 revised_paper/*.log
+
+# Paper sources and PDFs are kept out of the repo
+/revised_paper/
+/prod/
