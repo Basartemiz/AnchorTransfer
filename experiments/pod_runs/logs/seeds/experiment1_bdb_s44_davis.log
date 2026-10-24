@@ -1,0 +1,18 @@
+[seed_run] seed=44 exp=experiment1 dataset=bdb entry=eval_davis
+Using device: cuda  |  anchors from: bdb (bindingdb_interactions.csv)
+Davis proteins: 442 total → 80 OOD vs DTC train (≤30% identity)
+Davis drugs: 68 total → 61 with Tanimoto anchors (≥0.7 similarity)
+get_esm2_embeddings: skipping 34 sequences longer than 1022 residues
+Davis-OOD evaluable samples: 2448
+========================================================================
+DAVIS-OOD (≤30% identity to DTC train, best checkpoints)
+  ESM-DTA:           macro_CI=0.5190  macro_RMSE=1.6212  macro_AUROC=0.5277 (n=53)  score=-1.1022
+  AnchorTransfer v2: macro_CI=0.5475  macro_RMSE=1.1369  macro_AUROC=0.7160 (n=53)  score=-0.5895
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown:
+           bin |      n |  ESM RMSE  ESM CI |  Anc RMSE  Anc CI
+         ≤8.08 |    648 |    1.7077  0.4938 |    1.1738  0.5058
+  (8.08, 8.77] |    648 |    1.6389  0.5387 |    1.1769  0.5516
+  (8.77, 9.16] |    576 |    1.6001  0.5218 |    1.0470  0.5733
+         >9.16 |    576 |    1.6244  0.5127 |    1.2402  0.5709
+========================================================================

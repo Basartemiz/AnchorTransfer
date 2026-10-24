@@ -17,8 +17,22 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# Re-export encode_smiles from v1 for compatibility
-from anchor_transfer.model.anchor_transfer import CHARISOSMISET, SMILES_MAX_LEN, encode_smiles
+# SMILES character encoding (matches DeepDTA)
+CHARISOSMISET = {
+    "#": 29, "%": 30, ")": 31, "(": 1, "+": 32, "-": 33, "/": 34, ".": 2,
+    "1": 35, "0": 3, "3": 36, "2": 4, "5": 37, "4": 5, "7": 38, "6": 6,
+    "9": 39, "8": 7, "=": 40, "A": 41, "@": 8, "C": 42, "B": 9, "E": 43,
+    "D": 10, "G": 44, "F": 11, "I": 45, "H": 12, "K": 46, "M": 47,
+    "L": 13, "O": 48, "N": 14, "P": 15, "S": 49, "R": 16, "[": 50,
+    "T": 17, "]": 51, "V": 18, "Y": 19, "c": 20, "e": 21, "l": 22,
+    "n": 23, "o": 24, "r": 25, "s": 26, "t": 27, "u": 28,
+}
+SMILES_MAX_LEN = 100
+
+
+def encode_smiles(smi: str, max_len: int = SMILES_MAX_LEN) -> list[int]:
+    """Encode a SMILES string as a list of integers."""
+    return [CHARISOSMISET.get(c, 0) for c in smi[:max_len]] + [0] * max(0, max_len - len(smi))
 
 
 class SMILESEncoder(nn.Module):

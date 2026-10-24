@@ -1,0 +1,72 @@
+[seed_run] seed=46 exp=experiment2 dataset=dtc entry=main
+Using device: cuda  |  dataset: dtc (dtc_training_interactions.csv)
+/usr/local/lib/python3.11/dist-packages/torch/nn/utils/weight_norm.py:134: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+  WeightNorm.apply(module, name, dim)
+Split proteins: train=2262 val=282 test=283
+Graph cache: 164831 / 164831 SMILES successfully featurized
+Samples: train=178337 val=22105 test=9197
+Epoch 1/10 - DrugBAN avg loss: 1.3656 - AnchorDrugBAN avg loss: 1.2201
+  Val DrugBAN:       macro_CI=0.5395  macro_RMSE=1.5941  score=-1.0546
+  Val AnchorDrugBAN: macro_CI=0.5673  macro_RMSE=1.5699  score=-1.0026
+  [best] DrugBAN score improved → saved drugban_best.pt
+  [best] AnchorDrugBAN score improved → saved anchor_drugban_best.pt
+Epoch 2/10 - DrugBAN avg loss: 1.0591 - AnchorDrugBAN avg loss: 0.9005
+  Val DrugBAN:       macro_CI=0.5549  macro_RMSE=1.6386  score=-1.0837
+  Val AnchorDrugBAN: macro_CI=0.5758  macro_RMSE=1.4288  score=-0.8530
+  [best] AnchorDrugBAN score improved → saved anchor_drugban_best.pt
+Epoch 3/10 - DrugBAN avg loss: 0.9945 - AnchorDrugBAN avg loss: 0.8315
+  Val DrugBAN:       macro_CI=0.5157  macro_RMSE=1.6508  score=-1.1351
+  Val AnchorDrugBAN: macro_CI=0.5629  macro_RMSE=1.4847  score=-0.9218
+Epoch 4/10 - DrugBAN avg loss: 0.9226 - AnchorDrugBAN avg loss: 0.7788
+  Val DrugBAN:       macro_CI=0.5668  macro_RMSE=1.6237  score=-1.0569
+  Val AnchorDrugBAN: macro_CI=0.5634  macro_RMSE=1.4628  score=-0.8994
+Epoch 5/10 - DrugBAN avg loss: 0.8548 - AnchorDrugBAN avg loss: 0.7412
+  Val DrugBAN:       macro_CI=0.5312  macro_RMSE=1.6637  score=-1.1325
+  Val AnchorDrugBAN: macro_CI=0.5532  macro_RMSE=1.6673  score=-1.1141
+Epoch 6/10 - DrugBAN avg loss: 0.7990 - AnchorDrugBAN avg loss: 0.6959
+  Val DrugBAN:       macro_CI=0.5336  macro_RMSE=1.6866  score=-1.1530
+  Val AnchorDrugBAN: macro_CI=0.5480  macro_RMSE=1.5637  score=-1.0157
+Epoch 7/10 - DrugBAN avg loss: 0.7484 - AnchorDrugBAN avg loss: 0.6599
+  Val DrugBAN:       macro_CI=0.5333  macro_RMSE=1.5246  score=-0.9913
+  Val AnchorDrugBAN: macro_CI=0.5805  macro_RMSE=1.3656  score=-0.7851
+  [best] DrugBAN score improved → saved drugban_best.pt
+  [best] AnchorDrugBAN score improved → saved anchor_drugban_best.pt
+Epoch 8/10 - DrugBAN avg loss: 0.7043 - AnchorDrugBAN avg loss: 0.6263
+  Val DrugBAN:       macro_CI=0.5436  macro_RMSE=1.5025  score=-0.9589
+  Val AnchorDrugBAN: macro_CI=0.5567  macro_RMSE=1.4624  score=-0.9057
+  [best] DrugBAN score improved → saved drugban_best.pt
+Epoch 9/10 - DrugBAN avg loss: 0.6667 - AnchorDrugBAN avg loss: 0.5938
+  Val DrugBAN:       macro_CI=0.5338  macro_RMSE=1.4970  score=-0.9632
+  Val AnchorDrugBAN: macro_CI=0.5513  macro_RMSE=1.6269  score=-1.0756
+Epoch 10/10 - DrugBAN avg loss: 0.6332 - AnchorDrugBAN avg loss: 0.5647
+  Val DrugBAN:       macro_CI=0.5354  macro_RMSE=1.5843  score=-1.0489
+  Val AnchorDrugBAN: macro_CI=0.5613  macro_RMSE=1.6655  score=-1.1042
+/root/anchor/experiments/experiment2/main.py:136: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  torch.load(CHECKPOINT_DIR / "drugban_best.pt", map_location=device)
+/root/anchor/experiments/experiment2/main.py:139: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  torch.load(CHECKPOINT_DIR / "anchor_drugban_best.pt", map_location=device)
+========================================================================
+TEST SET (best checkpoints)
+  DrugBAN:       macro_CI=0.5441  macro_RMSE=1.6857  macro_AUROC=0.6216 (n=61)  score=-1.1416
+  AnchorDrugBAN: macro_CI=0.5154  macro_RMSE=1.5828  macro_AUROC=0.7102 (n=61)  score=-1.0674
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown:
+           bin |      n |   DB RMSE   DB CI |  Anc RMSE  Anc CI
+         ≤7.70 |   2349 |    1.5959  0.5248 |    1.1424  0.6514
+  (7.70, 8.30] |   2264 |    1.5574  0.5447 |    1.1637  0.6493
+  (8.30, 8.95] |   2292 |    1.4793  0.6016 |    1.2400  0.6560
+         >8.95 |   2292 |    1.5661  0.5720 |    1.1785  0.6758
+========================================================================
+Oracle test samples: 6490 (drugs with oracle anchor: 7831)
+========================================================================
+TEST SET — ORACLE ANCHORS (strongest test binder per drug, upper bound)
+  DrugBAN:       macro_CI=0.5104  macro_RMSE=1.5115  macro_AUROC=0.5600 (n=70)  score=-1.0011
+  AnchorDrugBAN: macro_CI=0.5258  macro_RMSE=1.3815  macro_AUROC=0.6163 (n=70)  score=-0.8557
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown (oracle):
+           bin |      n |   DB RMSE   DB CI |  Anc RMSE  Anc CI
+         ≤7.29 |   1661 |    1.5252  0.5409 |    1.3770  0.6334
+  (7.29, 7.94] |   1587 |    1.4208  0.5784 |    1.4401  0.6089
+  (7.94, 8.63] |   1621 |    1.4906  0.5903 |    1.4690  0.6140
+         >8.63 |   1621 |    1.6667  0.5852 |    1.7384  0.5800
+========================================================================

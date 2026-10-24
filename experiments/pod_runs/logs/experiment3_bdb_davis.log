@@ -1,0 +1,31 @@
+Using device: cuda  |  anchors from: bdb (bindingdb_interactions.csv)
+Davis proteins: 442 total → 80 OOD vs bdb train (≤30% identity)
+Davis drugs: 68 total → 61 with Tanimoto anchors (≥0.7 similarity)
+Using cache found in /root/.cache/torch/hub/rohitsinghlab_raygun_main
+Morgan cache: 420922 / 68 Davis SMILES fingerprinted
+Davis-OOD evaluable samples: 4880
+========================================================================
+DAVIS-OOD (≤30% identity to bdb train, best checkpoints)
+  ConciseDTA:    macro_CI=0.6348  macro_RMSE=0.7539  macro_AUROC=0.9084 (n=73)  score=-0.1191
+  ConciseAnchorBilinear: macro_CI=0.6420  macro_RMSE=0.6980  macro_AUROC=0.9418 (n=73)  score=-0.0560
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown:
+           bin |      n |  DTA RMSE  DTA CI |  Anc RMSE  Anc CI
+         ≤8.30 |   1280 |    0.5367  0.5594 |    0.5193  0.5662
+  (8.30, 8.83] |   1200 |    0.6347  0.5967 |    0.6823  0.5930
+  (8.83, 9.29] |   1200 |    0.9568  0.6279 |    0.8737  0.6590
+         >9.29 |   1200 |    0.9339  0.6457 |    0.8506  0.6672
+========================================================================
+Davis-OOD oracle samples: 5280 (drugs with oracle anchor: 66)
+========================================================================
+DAVIS-OOD — ORACLE ANCHORS (strongest Davis binder per drug, upper bound)
+  ConciseDTA:    macro_CI=0.6195  macro_RMSE=0.8860  macro_AUROC=0.8637 (n=73)  score=-0.2666
+  ConciseAnchorBilinear: macro_CI=0.6266  macro_RMSE=0.7934  macro_AUROC=0.8957 (n=73)  score=-0.1668
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown (oracle):
+           bin |      n |  DTA RMSE  DTA CI |  Anc RMSE  Anc CI
+         ≤8.68 |   1521 |    0.9728  0.5721 |    0.8465  0.5689
+  (8.68, 9.08] |   1121 |    0.6605  0.6079 |    0.7040  0.6165
+  (9.08, 9.54] |   1359 |    0.9105  0.6451 |    0.8752  0.6525
+         >9.54 |   1279 |    1.0015  0.5906 |    0.9251  0.6463
+========================================================================

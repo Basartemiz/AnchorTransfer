@@ -42,6 +42,20 @@ def evaluate_model(model, data_loader, device, return_records: bool = False):
                     ),
                 })
 
+    protein_metrics = aggregate_records(records)
+
+    if return_records:
+        return protein_metrics, records
+    return protein_metrics
+
+
+def aggregate_records(records: list[dict]) -> dict[str, dict]:
+    """Per-protein metrics from (protein_id, drug_id, pred, true) records.
+
+    Split out of evaluate_model so predictors that are not torch models — the
+    retrieval-only baseline in eval_retrieval.py — score through exactly this
+    code rather than a second copy of it.
+    """
     by_protein: dict[str, dict[str, list[float]]] = {}
     for rec in records:
         by_protein.setdefault(rec["protein_id"], {})[rec["drug_id"]] = [rec["pred"], rec["true"]]
@@ -64,8 +78,6 @@ def evaluate_model(model, data_loader, device, return_records: bool = False):
         if auroc == auroc:
             protein_metrics[protein_id]["auroc"] = auroc
 
-    if return_records:
-        return protein_metrics, records
     return protein_metrics
 
 

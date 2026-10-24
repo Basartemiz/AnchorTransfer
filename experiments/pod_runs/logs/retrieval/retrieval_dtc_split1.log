@@ -1,0 +1,9 @@
+Anchors from: dtc (dtc_training_interactions.csv)
+Davis proteins: 442 total → 114 OOD vs DTC train (≤30% identity)
+Davis drugs: 68 total → 61 with Tanimoto anchors (≥0.7 similarity)
+get_esm2_embeddings: skipping 58 sequences longer than 1022 residues
+Davis-OOD evaluable samples: 2849
+========================================================================
+DAVIS-OOD — RETRIEVAL ONLY (split_seed=1, 2849 samples)
+  Retrieval-kNN:     macro_CI=0.5535  macro_RMSE=3.3497  macro_AUROC=0.6909 (n=62)  score=-2.7962
+========================================================================

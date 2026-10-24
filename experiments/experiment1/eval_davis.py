@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 
 import pandas as pd
 import torch
@@ -24,6 +25,7 @@ from experiments.experiment1.main import (
     DATA_DIR,
     INTERACTIONS_PATHS,
     MERGED_SEQUENCES_PATH,
+    SPLIT_SEED,
 )
 from experiments.experiment1.split import mmseqs_cluster, ood_split
 from experiments.experiment1.train import CHECKPOINT_DIR, _macro_auroc, _macro_metrics
@@ -64,15 +66,15 @@ def get_non_homologs(
     }
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", choices=list(INTERACTIONS_PATHS), default="dtc",
-                        help="Training-source anchors + OOD split to replay (dtc or bdb).")
-    args = parser.parse_args()
-    interactions_path = INTERACTIONS_PATHS[args.dataset]
+def build_davis_dataset(dataset: str, random_anchor: bool = False) -> AnchorTransferDataset:
+    """Build the Davis-OOD evaluation set: OOD protein filter + Tanimoto anchors.
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Using device: {device}  |  anchors from: {args.dataset} ({interactions_path.name})")
+    Split out of main() so the retrieval-only baseline (eval_retrieval.py) scores
+    the exact same samples as the two trained models rather than a set rebuilt
+    from the same steps.
+    """
+    interactions_path = INTERACTIONS_PATHS[dataset]
+    print(f"Anchors from: {dataset} ({interactions_path.name})")
 
     # Training interactions — replay the OOD split and build the anchor map.
     interactions_df = pd.read_csv(interactions_path)
@@ -82,12 +84,12 @@ def main() -> None:
     dtc_uniprots = set(interactions_df["uniprot_id"].unique())
     dtc_sequences = {uid: all_sequences[uid] for uid in dtc_uniprots if uid in all_sequences}
 
-    # Replay the same split used for training (seed=42) to recover train_uids.
+    # Replay the same split used for training to recover train_uids.
     train_uids, _, _ = ood_split(
         dtc_sequences,
         test_frac=0.1, val_frac=0.1,
         test_identity=0.3, val_identity=0.5,
-        seed=42,
+        seed=SPLIT_SEED,
     )
 
     # Davis benchmark — rename columns to match DTC schema so AnchorTransferDataset works.
@@ -121,6 +123,25 @@ def main() -> None:
     )
     print(f"Davis drugs: {len(davis_drugs)} total → {len(drug_to_anchor)} with Tanimoto anchors (≥0.7 similarity)")
 
+    if random_anchor:
+        # Permute which drug gets which anchor. Keys, pool, and per-drug pKi
+        # bookkeeping are preserved so the evaluated sample set is unchanged;
+        # only drug<->anchor correspondence is broken.
+        rng = random.Random(0)
+        keys = sorted(drug_to_anchor)
+        shuffled = keys[:]
+        rng.shuffle(shuffled)
+        remap = dict(zip(keys, shuffled))
+        drug_to_anchor = {k: drug_to_anchor[remap[k]] for k in keys}
+        drug_to_anchor_pki = {k: drug_to_anchor_pki[remap[k]] for k in keys}
+        drug_to_second = {k: drug_to_second[remap[k]] for k in keys
+                          if remap[k] in drug_to_second}
+        drug_to_second_pki = {k: drug_to_second_pki[remap[k]] for k in keys
+                              if remap[k] in drug_to_second_pki}
+        fixed = sum(1 for k in keys if remap[k] == k)
+        print(f"[random-anchor] permuted {len(keys)} drug->anchor assignments "
+              f"({fixed} unchanged by chance)")
+
     # ESM-2 embeddings for both the OOD Davis queries and the DTC anchor proteins.
     anchor_uids = set(drug_to_anchor.values()) | set(drug_to_second.values())
     query_seqs = {uid: davis_uniprots[uid] for uid in ood_davis}
@@ -138,8 +159,28 @@ def main() -> None:
         drug_to_anchor_pki=drug_to_anchor_pki,
         drug_to_second_pki=drug_to_second_pki,
     )
-    davis_loader = DataLoader(davis_ds, batch_size=64, shuffle=False, collate_fn=collate_fn)
     print(f"Davis-OOD evaluable samples: {len(davis_ds)}")
+    return davis_ds
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset", choices=list(INTERACTIONS_PATHS), default="dtc",
+                        help="Training-source anchors + OOD split to replay (dtc or bdb).")
+    parser.add_argument("--random-anchor", action="store_true",
+                        help="Permute the drug->anchor assignment. The anchor pool, the "
+                             "number of samples and every embedding stay identical; only "
+                             "the correspondence between a drug and a protein known to "
+                             "bind it is destroyed. If scores hold up under this, the "
+                             "model is using the second protein slot as capacity rather "
+                             "than reading the anchor relationship.")
+    args = parser.parse_args()
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Using device: {device}")
+
+    davis_ds = build_davis_dataset(args.dataset, random_anchor=args.random_anchor)
+    davis_loader = DataLoader(davis_ds, batch_size=64, shuffle=False, collate_fn=collate_fn)
 
     # Load best checkpoints from training.
     esm_dta_model = EsmDTAModel(esm2_dim=1280, prot_proj_dim=128).to(device)

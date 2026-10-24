@@ -1,0 +1,10 @@
+Anchors from: bdb (bindingdb_interactions.csv)
+Davis proteins: 442 total → 95 OOD vs bdb train (≤30% identity)
+Davis drugs: 68 total → 64 with Tanimoto anchors (≥0.7 similarity)
+Using cache found in /root/.cache/torch/hub/rohitsinghlab_raygun_main
+Morgan cache: 420922 / 68 Davis SMILES fingerprinted
+Davis-OOD evaluable samples: 6080
+========================================================================
+DAVIS-OOD — RETRIEVAL ONLY (split_seed=2, 6080 samples)
+  Retrieval-kNN:     macro_CI=0.5584  macro_RMSE=3.5329  macro_AUROC=0.7216 (n=85)  score=-2.9745
+========================================================================

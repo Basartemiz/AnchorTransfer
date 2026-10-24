@@ -18,7 +18,7 @@ def mmseqs_cluster(sequences: dict[str, str], identity: float, coverage: float =
         tmp = Path(tmpdir)
         fasta = tmp / "in.fasta"
         with open(fasta, "w") as f:
-            for uid, seq in sequences.items():
+            for uid, seq in sorted(sequences.items()):
                 f.write(f">{uid}\n{seq}\n")
         out_prefix = str(tmp / "out")
         work_dir = str(tmp / "work")
@@ -62,7 +62,7 @@ def ood_split(
     test_clusters: dict[str, list[str]] = defaultdict(list)
     for member, rep in test_m2r.items():
         test_clusters[rep].append(member)
-    reps = list(test_clusters.keys())
+    reps = sorted(test_clusters.keys())
     rng.shuffle(reps)
     test_ids: set[str] = set()
     target_test = int(total * test_frac)
@@ -76,7 +76,7 @@ def ood_split(
     val_clusters: dict[str, list[str]] = defaultdict(list)
     for member, rep in val_m2r.items():
         val_clusters[rep].append(member)
-    reps = list(val_clusters.keys())
+    reps = sorted(val_clusters.keys())
     rng.shuffle(reps)
     val_ids: set[str] = set()
     target_val = int(total * val_frac)

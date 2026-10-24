@@ -14,3 +14,17 @@ drugban_graph_cache.*
 # Allow scripts/data/ Python files (overrides *.py exclusion above)
 !scripts/data/
 !scripts/data/*.py
+
+# LaTeX build artifacts
+*.aux
+*.fls
+*.fdb_latexmk
+*.blg
+*.out
+*.toc
+*.synctex.gz
+revised_paper/*.log
+
+# Paper sources and PDFs are kept out of the repo
+/revised_paper/
+/prod/

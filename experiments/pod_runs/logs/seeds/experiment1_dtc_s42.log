@@ -1,0 +1,73 @@
+[seed_run] seed=42 exp=experiment1 dataset=dtc entry=main
+Using device: cuda  |  dataset: dtc (dtc_training_interactions.csv)
+Split proteins: train=2262 val=282 test=283
+get_esm2_embeddings: skipping 253 sequences longer than 1022 residues
+Samples: train=135452 val=17080 test=6401
+Epoch 1/10 - ESM-DTA avg loss: 1.8134 - AnchorTransfer v2 avg loss: 1.8623
+  Val ESM-DTA:           macro_CI=0.5562  macro_RMSE=1.3595  score=-0.8034
+  Val AnchorTransfer v2: macro_CI=0.5783  macro_RMSE=1.3216  score=-0.7433
+  [best] ESM-DTA score improved → saved esm_dta_best.pt
+  [best] AnchorTransfer v2 score improved → saved anchor_dta_best.pt
+Epoch 2/10 - ESM-DTA avg loss: 1.1483 - AnchorTransfer v2 avg loss: 1.0574
+  Val ESM-DTA:           macro_CI=0.5896  macro_RMSE=1.3968  score=-0.8072
+  Val AnchorTransfer v2: macro_CI=0.6124  macro_RMSE=1.2900  score=-0.6776
+  [best] AnchorTransfer v2 score improved → saved anchor_dta_best.pt
+Epoch 3/10 - ESM-DTA avg loss: 1.0581 - AnchorTransfer v2 avg loss: 0.9466
+  Val ESM-DTA:           macro_CI=0.5862  macro_RMSE=1.3471  score=-0.7610
+  Val AnchorTransfer v2: macro_CI=0.6107  macro_RMSE=1.2369  score=-0.6262
+  [best] ESM-DTA score improved → saved esm_dta_best.pt
+  [best] AnchorTransfer v2 score improved → saved anchor_dta_best.pt
+Epoch 4/10 - ESM-DTA avg loss: 0.9956 - AnchorTransfer v2 avg loss: 0.8493
+  Val ESM-DTA:           macro_CI=0.5910  macro_RMSE=1.3234  score=-0.7325
+  Val AnchorTransfer v2: macro_CI=0.5989  macro_RMSE=1.1808  score=-0.5819
+  [best] ESM-DTA score improved → saved esm_dta_best.pt
+  [best] AnchorTransfer v2 score improved → saved anchor_dta_best.pt
+Epoch 5/10 - ESM-DTA avg loss: 0.9529 - AnchorTransfer v2 avg loss: 0.7755
+  Val ESM-DTA:           macro_CI=0.5826  macro_RMSE=1.3600  score=-0.7773
+  Val AnchorTransfer v2: macro_CI=0.5843  macro_RMSE=1.1912  score=-0.6069
+Epoch 6/10 - ESM-DTA avg loss: 0.9029 - AnchorTransfer v2 avg loss: 0.7159
+  Val ESM-DTA:           macro_CI=0.5907  macro_RMSE=1.3767  score=-0.7860
+  Val AnchorTransfer v2: macro_CI=0.6016  macro_RMSE=1.2459  score=-0.6443
+Epoch 7/10 - ESM-DTA avg loss: 0.8438 - AnchorTransfer v2 avg loss: 0.6601
+  Val ESM-DTA:           macro_CI=0.5800  macro_RMSE=1.3322  score=-0.7522
+  Val AnchorTransfer v2: macro_CI=0.5913  macro_RMSE=1.1824  score=-0.5911
+Epoch 8/10 - ESM-DTA avg loss: 0.7840 - AnchorTransfer v2 avg loss: 0.6187
+  Val ESM-DTA:           macro_CI=0.5681  macro_RMSE=1.2851  score=-0.7170
+  Val AnchorTransfer v2: macro_CI=0.5930  macro_RMSE=1.1817  score=-0.5886
+  [best] ESM-DTA score improved → saved esm_dta_best.pt
+Epoch 9/10 - ESM-DTA avg loss: 0.7315 - AnchorTransfer v2 avg loss: 0.5839
+  Val ESM-DTA:           macro_CI=0.5719  macro_RMSE=1.2966  score=-0.7247
+  Val AnchorTransfer v2: macro_CI=0.6111  macro_RMSE=1.1698  score=-0.5587
+  [best] AnchorTransfer v2 score improved → saved anchor_dta_best.pt
+Epoch 10/10 - ESM-DTA avg loss: 0.6826 - AnchorTransfer v2 avg loss: 0.5522
+  Val ESM-DTA:           macro_CI=0.5787  macro_RMSE=1.3318  score=-0.7530
+  Val AnchorTransfer v2: macro_CI=0.6177  macro_RMSE=1.1972  score=-0.5795
+/root/anchor/experiments/experiment1/main.py:112: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  torch.load(CHECKPOINT_DIR / "esm_dta_best.pt", map_location=device)
+/root/anchor/experiments/experiment1/main.py:115: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  torch.load(CHECKPOINT_DIR / "anchor_dta_best.pt", map_location=device)
+========================================================================
+TEST SET (best checkpoints)
+  ESM-DTA:           macro_CI=0.5714  macro_RMSE=1.4543  macro_AUROC=0.8044 (n=55)  score=-0.8829
+  AnchorTransfer v2: macro_CI=0.5911  macro_RMSE=1.3987  macro_AUROC=0.7636 (n=55)  score=-0.8077
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown (data-driven quartiles of anchor pKi):
+           bin |      n |  ESM RMSE  ESM CI |  Anc RMSE  Anc CI
+         ≤7.60 |   1624 |    0.9862  0.7133 |    1.0450  0.6807
+  (7.60, 8.19] |   1577 |    0.9643  0.7241 |    0.9823  0.7016
+  (8.19, 8.77] |   1667 |    1.0658  0.7322 |    1.0385  0.7253
+         >8.77 |   1533 |    1.2425  0.7320 |    1.2523  0.7309
+========================================================================
+Oracle test samples: 5789 (drugs with oracle anchor: 7831)
+========================================================================
+TEST SET — ORACLE ANCHORS (strongest test binder per drug, upper bound)
+  ESM-DTA:           macro_CI=0.5513  macro_RMSE=1.3986  macro_AUROC=0.7129 (n=64)  score=-0.8473
+  AnchorTransfer v2: macro_CI=0.5734  macro_RMSE=1.2537  macro_AUROC=0.7898 (n=64)  score=-0.6803
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown (oracle):
+           bin |      n |  ESM RMSE  ESM CI |  Anc RMSE  Anc CI
+         ≤7.25 |   1453 |    1.3148  0.6671 |    1.3251  0.6642
+  (7.25, 7.92] |   1502 |    1.4094  0.5834 |    1.2647  0.6232
+  (7.92, 8.62] |   1408 |    1.5236  0.5628 |    1.3144  0.6230
+         >8.62 |   1426 |    1.7544  0.5443 |    1.5422  0.6030
+========================================================================

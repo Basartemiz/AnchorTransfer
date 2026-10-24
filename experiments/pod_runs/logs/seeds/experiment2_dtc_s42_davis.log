@@ -1,0 +1,33 @@
+[seed_run] seed=42 exp=experiment2 dataset=dtc entry=eval_davis
+Using device: cuda  |  anchors from: dtc (dtc_training_interactions.csv)
+Davis proteins: 442 total → 117 OOD vs dtc train (≤30% identity)
+Davis drugs: 68 total → 60 with Tanimoto anchors (≥0.7 similarity)
+Graph cache: 68 / 68 Davis SMILES featurized
+Davis-OOD evaluable samples: 7020
+/usr/local/lib/python3.11/dist-packages/torch/nn/utils/weight_norm.py:134: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+  WeightNorm.apply(module, name, dim)
+========================================================================
+DAVIS-OOD (≤30% identity to dtc train, best checkpoints)
+  DrugBAN:       macro_CI=0.5071  macro_RMSE=2.5358  macro_AUROC=0.4351 (n=107)  score=-2.0287
+  AnchorDrugBAN: macro_CI=0.5100  macro_RMSE=1.8360  macro_AUROC=0.5984 (n=107)  score=-1.3260
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown:
+           bin |      n |   DB RMSE   DB CI |  Anc RMSE  Anc CI
+         ≤8.36 |   1872 |    2.6738  0.4897 |    1.9944  0.5323
+  (8.36, 8.80] |   1755 |    2.5315  0.4865 |    1.9849  0.5260
+  (8.80, 9.31] |   1755 |    2.5342  0.5158 |    1.6430  0.5021
+         >9.31 |   1638 |    2.4408  0.4780 |    1.7105  0.5186
+========================================================================
+Davis-OOD oracle samples: 7722 (drugs with oracle anchor: 66)
+========================================================================
+DAVIS-OOD — ORACLE ANCHORS (strongest Davis binder per drug, upper bound)
+  DrugBAN:       macro_CI=0.5004  macro_RMSE=2.5371  macro_AUROC=0.4260 (n=108)  score=-2.0367
+  AnchorDrugBAN: macro_CI=0.5035  macro_RMSE=2.0586  macro_AUROC=0.5655 (n=108)  score=-1.5552
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown (oracle):
+           bin |      n |   DB RMSE   DB CI |  Anc RMSE  Anc CI
+         ≤8.68 |   2230 |    2.6027  0.4811 |    2.1894  0.4923
+  (8.68, 9.08] |   1636 |    2.6123  0.4788 |    2.3455  0.5249
+  (9.08, 9.54] |   1985 |    2.4707  0.4593 |    1.7865  0.5443
+         >9.54 |   1871 |    2.5175  0.5166 |    1.9262  0.5114
+========================================================================

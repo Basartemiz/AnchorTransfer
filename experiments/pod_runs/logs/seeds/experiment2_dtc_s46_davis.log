@@ -1,0 +1,33 @@
+[seed_run] seed=46 exp=experiment2 dataset=dtc entry=eval_davis
+Using device: cuda  |  anchors from: dtc (dtc_training_interactions.csv)
+Davis proteins: 442 total → 117 OOD vs dtc train (≤30% identity)
+Davis drugs: 68 total → 60 with Tanimoto anchors (≥0.7 similarity)
+Graph cache: 68 / 68 Davis SMILES featurized
+Davis-OOD evaluable samples: 7020
+/usr/local/lib/python3.11/dist-packages/torch/nn/utils/weight_norm.py:134: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+  WeightNorm.apply(module, name, dim)
+========================================================================
+DAVIS-OOD (≤30% identity to dtc train, best checkpoints)
+  DrugBAN:       macro_CI=0.5222  macro_RMSE=1.7380  macro_AUROC=0.4777 (n=107)  score=-1.2158
+  AnchorDrugBAN: macro_CI=0.5181  macro_RMSE=1.5679  macro_AUROC=0.6195 (n=107)  score=-1.0498
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown:
+           bin |      n |   DB RMSE   DB CI |  Anc RMSE  Anc CI
+         ≤8.36 |   1872 |    1.8153  0.4913 |    1.6401  0.4851
+  (8.36, 8.80] |   1755 |    1.6691  0.5601 |    1.5493  0.5244
+  (8.80, 9.31] |   1755 |    1.7365  0.5347 |    1.5443  0.5223
+         >9.31 |   1638 |    1.7921  0.4930 |    1.5931  0.5323
+========================================================================
+Davis-OOD oracle samples: 7722 (drugs with oracle anchor: 66)
+========================================================================
+DAVIS-OOD — ORACLE ANCHORS (strongest Davis binder per drug, upper bound)
+  DrugBAN:       macro_CI=0.5266  macro_RMSE=1.7628  macro_AUROC=0.4922 (n=108)  score=-1.2362
+  AnchorDrugBAN: macro_CI=0.5046  macro_RMSE=1.7209  macro_AUROC=0.5641 (n=108)  score=-1.2163
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown (oracle):
+           bin |      n |   DB RMSE   DB CI |  Anc RMSE  Anc CI
+         ≤8.68 |   2230 |    1.8474  0.5552 |    1.9023  0.4993
+  (8.68, 9.08] |   1636 |    1.7015  0.5238 |    1.7134  0.5186
+  (9.08, 9.54] |   1985 |    1.7474  0.5032 |    1.5930  0.5242
+         >9.54 |   1871 |    1.7952  0.5283 |    1.6859  0.5045
+========================================================================

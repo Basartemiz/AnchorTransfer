@@ -1,0 +1,8 @@
+sequences: 2827
+30% clustering identical: True  (members differing: 0/2827)
+30% n_clusters: 1247 vs 1247
+50% clustering identical: True  (members differing: 0/2827)
+50% n_clusters: 1627 vs 1627
+train: 2261 vs 2261 | identical=True | symmetric_diff=0
+val: 284 vs 284 | identical=True | symmetric_diff=0
+test: 282 vs 282 | identical=True | symmetric_diff=0

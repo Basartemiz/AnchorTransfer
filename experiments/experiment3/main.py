@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -36,6 +37,11 @@ BDB_INTERACTIONS_PATH = DATA_DIR / "processed" / "bindingdb_interactions.csv"
 MERGED_SEQUENCES_PATH = DATA_DIR / "processed" / "merged_sequences.json"
 
 INTERACTIONS_PATHS = {"dtc": DTC_INTERACTIONS_PATH, "bdb": BDB_INTERACTIONS_PATH}
+
+# Which protein partition to train and evaluate on. 42 reproduces the split
+# used for every single-split result; other values give independent partitions
+# for measuring how much the OOD conclusions depend on one draw of proteins.
+SPLIT_SEED = int(os.environ.get("SPLIT_SEED", "42"))
 
 # CoNCISE backbone dims: Raygun outputs (50, 1280). The paper uses FSQ drug
 # quantization with 3 codes → drug_dim/proj_dim; defaults mirror the
@@ -71,9 +77,9 @@ def main() -> None:
         sequences,
         test_frac=0.1, val_frac=0.1,
         test_identity=0.3, val_identity=0.5,
-        seed=42,
+        seed=SPLIT_SEED,
     )
-    print(f"Split proteins: train={len(train_uids)} val={len(val_uids)} test={len(test_uids)}")
+    print(f"Split proteins (split_seed={SPLIT_SEED}): train={len(train_uids)} val={len(val_uids)} test={len(test_uids)}")
 
     protein_embeddings = build_raygun_cache(sequences, device=device)
     print(f"Raygun cache: {len(protein_embeddings)} / {len(sequences)} proteins embedded")

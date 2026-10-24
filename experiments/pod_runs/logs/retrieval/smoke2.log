@@ -1,0 +1,31 @@
+Using device: cpu
+Anchors from: dtc (dtc_training_interactions.csv)
+Davis proteins: 442 total → 117 OOD vs dtc train (≤30% identity)
+Davis drugs: 68 total → 60 with Tanimoto anchors (≥0.7 similarity)
+Morgan cache: 420922 / 68 Davis SMILES fingerprinted
+Davis-OOD evaluable samples: 7020
+========================================================================
+DAVIS-OOD (≤30% identity to dtc train, best checkpoints)
+  ConciseDTA:    macro_CI=0.6164  macro_RMSE=0.8072  macro_AUROC=0.7911 (n=107)  score=-0.1909
+  ConciseAnchorBilinear: macro_CI=0.6372  macro_RMSE=0.7027  macro_AUROC=0.8846 (n=107)  score=-0.0655
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown:
+           bin |      n |  DTA RMSE  DTA CI |  Anc RMSE  Anc CI
+         ≤8.36 |   1872 |    0.7172  0.5555 |    0.6408  0.5765
+  (8.36, 8.80] |   1755 |    0.8550  0.5834 |    0.7070  0.6446
+  (8.80, 9.31] |   1755 |    0.8141  0.5923 |    0.7317  0.6297
+         >9.31 |   1638 |    1.0238  0.6415 |    0.8743  0.6883
+========================================================================
+Davis-OOD oracle samples: 7722 (drugs with oracle anchor: 66)
+========================================================================
+DAVIS-OOD — ORACLE ANCHORS (strongest Davis binder per drug, upper bound)
+  ConciseDTA:    macro_CI=0.6069  macro_RMSE=0.8467  macro_AUROC=0.7998 (n=108)  score=-0.2398
+  ConciseAnchorBilinear: macro_CI=0.6259  macro_RMSE=0.7243  macro_AUROC=0.9120 (n=108)  score=-0.0984
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown (oracle):
+           bin |      n |  DTA RMSE  DTA CI |  Anc RMSE  Anc CI
+         ≤8.68 |   2230 |    0.7820  0.5619 |    0.6539  0.5923
+  (8.68, 9.08] |   1636 |    0.9105  0.5738 |    0.7081  0.6342
+  (9.08, 9.54] |   1985 |    0.9597  0.6177 |    0.8440  0.6480
+         >9.54 |   1871 |    0.9094  0.6088 |    0.7856  0.6504
+========================================================================

@@ -1,0 +1,31 @@
+[seed_run] seed=43 exp=experiment3 dataset=dtc entry=eval_davis
+Using device: cuda  |  anchors from: dtc (dtc_training_interactions.csv)
+Davis proteins: 442 total → 117 OOD vs dtc train (≤30% identity)
+Davis drugs: 68 total → 60 with Tanimoto anchors (≥0.7 similarity)
+Morgan cache: 420922 / 68 Davis SMILES fingerprinted
+Davis-OOD evaluable samples: 7020
+========================================================================
+DAVIS-OOD (≤30% identity to dtc train, best checkpoints)
+  ConciseDTA:    macro_CI=0.6223  macro_RMSE=0.7562  macro_AUROC=0.7953 (n=107)  score=-0.1340
+  ConciseAnchorBilinear: macro_CI=0.6187  macro_RMSE=0.6801  macro_AUROC=0.8117 (n=107)  score=-0.0614
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown:
+           bin |      n |  DTA RMSE  DTA CI |  Anc RMSE  Anc CI
+         ≤8.36 |   1872 |    0.6992  0.5575 |    0.6784  0.5670
+  (8.36, 8.80] |   1755 |    0.7939  0.6057 |    0.7279  0.6250
+  (8.80, 9.31] |   1755 |    0.7565  0.5976 |    0.7095  0.6366
+         >9.31 |   1638 |    0.9760  0.6491 |    0.8220  0.6968
+========================================================================
+Davis-OOD oracle samples: 7722 (drugs with oracle anchor: 66)
+========================================================================
+DAVIS-OOD — ORACLE ANCHORS (strongest Davis binder per drug, upper bound)
+  ConciseDTA:    macro_CI=0.6107  macro_RMSE=0.7791  macro_AUROC=0.8091 (n=108)  score=-0.1684
+  ConciseAnchorBilinear: macro_CI=0.6192  macro_RMSE=0.6719  macro_AUROC=0.8917 (n=108)  score=-0.0528
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown (oracle):
+           bin |      n |  DTA RMSE  DTA CI |  Anc RMSE  Anc CI
+         ≤8.68 |   2230 |    0.6838  0.5699 |    0.6356  0.5833
+  (8.68, 9.08] |   1636 |    0.8652  0.5795 |    0.6952  0.6336
+  (9.08, 9.54] |   1985 |    0.9002  0.6267 |    0.7547  0.6700
+         >9.54 |   1871 |    0.8651  0.6190 |    0.7610  0.6539
+========================================================================

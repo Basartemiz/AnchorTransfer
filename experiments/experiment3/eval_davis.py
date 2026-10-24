@@ -28,6 +28,7 @@ from experiments.experiment3.main import (
     MERGED_SEQUENCES_PATH,
     N_HEADS,
     PROJ_DIM,
+    SPLIT_SEED,
 )
 from experiments.experiment3.split import mmseqs_cluster, ood_split
 from experiments.experiment3.train import CHECKPOINT_DIR, _macro_auroc, _macro_metrics
@@ -54,15 +55,20 @@ def get_non_homologs(
     }
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", choices=list(INTERACTIONS_PATHS), default="dtc",
-                        help="Training-source anchors + OOD split to replay (dtc or bdb).")
-    args = parser.parse_args()
-    interactions_path = INTERACTIONS_PATHS[args.dataset]
+def build_davis_dataset(dataset: str):
+    """Build the Davis-OOD evaluation set: OOD protein filter + Tanimoto anchors.
 
+    Split out of main() so the retrieval-only baseline (eval_retrieval.py) scores
+    the exact same samples as the two trained models rather than a set rebuilt
+    from the same steps.
+
+    Returns (dataset, davis_df, davis_uniprots, ood_davis); main()'s oracle
+    section needs the last three, and reads the embeddings and Morgan cache off
+    the dataset itself.
+    """
+    interactions_path = INTERACTIONS_PATHS[dataset]
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Using device: {device}  |  anchors from: {args.dataset} ({interactions_path.name})")
+    print(f"Anchors from: {dataset} ({interactions_path.name})")
 
     interactions_df = pd.read_csv(interactions_path)
     with open(MERGED_SEQUENCES_PATH, "r") as f:
@@ -75,7 +81,7 @@ def main() -> None:
         src_sequences,
         test_frac=0.1, val_frac=0.1,
         test_identity=0.3, val_identity=0.5,
-        seed=42,
+        seed=SPLIT_SEED,
     )
 
     davis_df = pd.read_csv(DAVIS_PATH).rename(
@@ -93,7 +99,7 @@ def main() -> None:
         sequences=combined_seqs,
         identity=0.3,
     )
-    print(f"Davis proteins: {len(davis_uniprots)} total → {len(ood_davis)} OOD vs {args.dataset} train (≤30% identity)")
+    print(f"Davis proteins: {len(davis_uniprots)} total → {len(ood_davis)} OOD vs {dataset} train (≤30% identity)")
 
     davis_drugs = set(davis_df["ligand_smiles"].astype(str))
     drug_to_anchor, drug_to_second, drug_to_anchor_pki, drug_to_second_pki = compute_drug_anchors_tanimoto(
@@ -123,8 +129,23 @@ def main() -> None:
         drug_to_second_pki=drug_to_second_pki,
         morgan_cache=morgan_cache,
     )
-    davis_loader = DataLoader(davis_ds, batch_size=256, shuffle=False, collate_fn=collate_fn)
     print(f"Davis-OOD evaluable samples: {len(davis_ds)}")
+    return davis_ds, davis_df, davis_uniprots, ood_davis
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset", choices=list(INTERACTIONS_PATHS), default="dtc",
+                        help="Training-source anchors + OOD split to replay (dtc or bdb).")
+    args = parser.parse_args()
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Using device: {device}")
+
+    davis_ds, davis_df, davis_uniprots, ood_davis = build_davis_dataset(args.dataset)
+    protein_embeddings = davis_ds.protein_embeddings
+    morgan_cache = davis_ds.morgan_cache
+    davis_loader = DataLoader(davis_ds, batch_size=256, shuffle=False, collate_fn=collate_fn)
 
     dta_model = ConciseDTA(esm_dim=RAYGUN_DIM, proj_dim=PROJ_DIM, nheads=N_HEADS, dropout=DROPOUT).to(device)
     anchor_model = ConciseAnchorBilinear(residue_dim=RAYGUN_DIM, proj_dim=PROJ_DIM, dropout=DROPOUT).to(device)

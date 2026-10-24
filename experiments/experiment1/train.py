@@ -1,6 +1,7 @@
 """Training loop for ESM-DTA vs AnchorTransfer v2 comparison."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import torch
@@ -8,7 +9,9 @@ import torch.nn.functional as F
 
 from experiments.experiment1.eval import evaluate_model
 
-CHECKPOINT_DIR = Path(__file__).parent / "checkpoints"
+CHECKPOINT_DIR = Path(
+    os.environ.get("EXP1_CHECKPOINTS", Path(__file__).parent / "checkpoints")
+)
 
 
 def _macro_metrics(protein_metrics: dict) -> tuple[float, float, float]:
@@ -65,7 +68,6 @@ def train_models(
             protein_esm2 = batch["protein_esm2"].to(device)
             pki_targets = batch["pki"].to(device)
             anchor_esm2 = batch["anchor_protein_esm2"].to(device)
-            anchor_pki = batch["anchor_pki"].to(device)
 
             # ESM-DTA
             esm_dta_preds = esm_dta_model(drug_indices, protein_esm2)
@@ -76,7 +78,6 @@ def train_models(
                 anchor_esm2=anchor_esm2,
                 query_esm2=protein_esm2,
                 drug_indices=drug_indices,
-                anchor_pki=anchor_pki,
             )["pki_pred"]
             anchor_dta_loss = F.mse_loss(anchor_dta_preds, pki_targets)
 

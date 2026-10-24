@@ -1,0 +1,9 @@
+Anchors from: dtc (dtc_training_interactions.csv)
+Davis proteins: 442 total → 117 OOD vs dtc train (≤30% identity)
+Davis drugs: 68 total → 60 with Tanimoto anchors (≥0.7 similarity)
+Morgan cache: 420922 / 68 Davis SMILES fingerprinted
+Davis-OOD evaluable samples: 7020
+========================================================================
+DAVIS-OOD — RETRIEVAL ONLY (split_seed=42, 7020 samples)
+  Retrieval-kNN:     macro_CI=0.5593  macro_RMSE=3.5658  macro_AUROC=0.6604 (n=107)  score=-3.0065
+========================================================================

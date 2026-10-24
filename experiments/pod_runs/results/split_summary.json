@@ -1,0 +1,632 @@
+{
+  "experiment1|bdb|Davis-OOD|auroc": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.5867333333333332,
+    "baseline_std": 0.06021231878389453,
+    "anchor_mean": 0.6891666666666666,
+    "anchor_std": 0.0764574609396188,
+    "delta": 0.10243333333333333,
+    "t": 5.604865336673397
+  },
+  "experiment1|bdb|Davis-OOD|ci": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.5096999999999999,
+    "baseline_std": 0.019173679876330472,
+    "anchor_mean": 0.5405333333333333,
+    "anchor_std": 0.02087135197665292,
+    "delta": 0.030833333333333306,
+    "t": 5.117531433496008
+  },
+  "experiment1|bdb|Davis-OOD|rmse": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 1.7396,
+    "baseline_std": 0.02373752303843011,
+    "anchor_mean": 1.2751333333333332,
+    "anchor_std": 0.025969276719487917,
+    "delta": -0.46446666666666675,
+    "t": -51.466403298517484
+  },
+  "experiment1|bdb|Oracle|auroc": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.6355666666666667,
+    "baseline_std": 0.05970940741066966,
+    "anchor_mean": 0.6740333333333334,
+    "anchor_std": 0.03242689213189155,
+    "delta": 0.03846666666666665,
+    "t": 2.3266270890969385
+  },
+  "experiment1|bdb|Oracle|ci": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.5365666666666666,
+    "baseline_std": 0.007821338333899953,
+    "anchor_mean": 0.5471,
+    "anchor_std": 0.023665798106127716,
+    "delta": 0.01053333333333332,
+    "t": 0.6393343161175268
+  },
+  "experiment1|bdb|Oracle|rmse": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 1.4681666666666668,
+    "baseline_std": 0.140664008663671,
+    "anchor_mean": 1.3635000000000002,
+    "anchor_std": 0.13043875957705217,
+    "delta": -0.10466666666666669,
+    "t": -11.17246722538784
+  },
+  "experiment1|bdb|Test|auroc": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.79,
+    "baseline_std": 0.031523959142214376,
+    "anchor_mean": 0.7787666666666667,
+    "anchor_std": 0.059895019269830214,
+    "delta": -0.011233333333333317,
+    "t": -0.4137015839401355
+  },
+  "experiment1|bdb|Test|ci": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.5882666666666666,
+    "baseline_std": 0.004933896364267611,
+    "anchor_mean": 0.5866666666666667,
+    "anchor_std": 0.01906471435226171,
+    "delta": -0.0015999999999999719,
+    "t": -0.18501128350291907
+  },
+  "experiment1|bdb|Test|rmse": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 1.3496,
+    "baseline_std": 0.10034136734169015,
+    "anchor_mean": 1.3579999999999999,
+    "anchor_std": 0.09575922932020708,
+    "delta": 0.008400000000000038,
+    "t": 0.3448914081955735
+  },
+  "experiment1|dtc|Davis-OOD|auroc": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.5094,
+    "baseline_std": 0.1357404508611932,
+    "anchor_mean": 0.7395333333333333,
+    "anchor_std": 0.05923422434145091,
+    "delta": 0.23013333333333333,
+    "t": 2.8441620718513327
+  },
+  "experiment1|dtc|Davis-OOD|ci": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.5040333333333333,
+    "baseline_std": 0.04291903229726101,
+    "anchor_mean": 0.5566333333333334,
+    "anchor_std": 0.02268090239239465,
+    "delta": 0.052600000000000036,
+    "t": 1.780828543156778
+  },
+  "experiment1|dtc|Davis-OOD|rmse": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 1.3293,
+    "baseline_std": 0.038861420457826854,
+    "anchor_mean": 1.0181,
+    "anchor_std": 0.046721194334049324,
+    "delta": -0.3111999999999999,
+    "t": -25.531937388013308
+  },
+  "experiment1|dtc|Oracle|auroc": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.6760999999999999,
+    "baseline_std": 0.033523722943611126,
+    "anchor_mean": 0.6928666666666667,
+    "anchor_std": 0.0869356850397656,
+    "delta": 0.01676666666666667,
+    "t": 0.5429496542963622
+  },
+  "experiment1|dtc|Oracle|ci": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.5585666666666667,
+    "baseline_std": 0.012586235868333866,
+    "anchor_mean": 0.5481666666666666,
+    "anchor_std": 0.022281457163599812,
+    "delta": -0.010400000000000001,
+    "t": -0.5627104794465317
+  },
+  "experiment1|dtc|Oracle|rmse": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 1.3903999999999999,
+    "baseline_std": 0.028111741319242406,
+    "anchor_mean": 1.2738333333333334,
+    "anchor_std": 0.04900666621321368,
+    "delta": -0.11656666666666664,
+    "t": -6.557237451071641
+  },
+  "experiment1|dtc|Test|auroc": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.7584333333333332,
+    "baseline_std": 0.04311152204844239,
+    "anchor_mean": 0.7257666666666666,
+    "anchor_std": 0.03364585165118175,
+    "delta": -0.032666666666666656,
+    "t": -2.244874010565977
+  },
+  "experiment1|dtc|Test|ci": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.5847000000000001,
+    "baseline_std": 0.011665761869676555,
+    "anchor_mean": 0.5764333333333332,
+    "anchor_std": 0.013578414242220354,
+    "delta": -0.00826666666666668,
+    "t": -0.5700818035799707
+  },
+  "experiment1|dtc|Test|rmse": {
+    "baseline_model": "ESM-DTA",
+    "anchor_model": "AnchorTransfer v2",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 1.4286666666666665,
+    "baseline_std": 0.05520963080236392,
+    "anchor_mean": 1.4169666666666665,
+    "anchor_std": 0.045536176094763806,
+    "delta": -0.011699999999999896,
+    "t": -0.5220180742878002
+  },
+  "experiment3|bdb|Davis-OOD|auroc": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.8812333333333333,
+    "baseline_std": 0.012100550951644017,
+    "anchor_mean": 0.9237666666666667,
+    "anchor_std": 0.02244199931675726,
+    "delta": 0.04253333333333328,
+    "t": 6.056787644069364
+  },
+  "experiment3|bdb|Davis-OOD|ci": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.6334333333333334,
+    "baseline_std": 0.0012503332889007663,
+    "anchor_mean": 0.64,
+    "anchor_std": 0.008343260753446472,
+    "delta": 0.006566666666666647,
+    "t": 1.3698072490783901
+  },
+  "experiment3|bdb|Davis-OOD|rmse": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.762,
+    "baseline_std": 0.03341616375348915,
+    "anchor_mean": 0.6964666666666667,
+    "anchor_std": 0.02101554979850237,
+    "delta": -0.06553333333333333,
+    "t": -8.578040271589115
+  },
+  "experiment3|bdb|Davis-oracle|auroc": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.8574999999999999,
+    "baseline_std": 0.0085772956110886,
+    "anchor_mean": 0.9083,
+    "anchor_std": 0.0026514147167125694,
+    "delta": 0.05080000000000003,
+    "t": 13.034213347085934
+  },
+  "experiment3|bdb|Davis-oracle|ci": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.6257999999999999,
+    "baseline_std": 0.007917070165155755,
+    "anchor_mean": 0.6308666666666667,
+    "anchor_std": 0.006466323014923825,
+    "delta": 0.005066666666666701,
+    "t": 1.129807102295702
+  },
+  "experiment3|bdb|Davis-oracle|rmse": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.8200666666666666,
+    "baseline_std": 0.01172959220660861,
+    "anchor_mean": 0.7619666666666668,
+    "anchor_std": 0.04315476026272572,
+    "delta": -0.058099999999999964,
+    "t": -2.9193277011675374
+  },
+  "experiment3|bdb|Oracle|auroc": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.6956333333333333,
+    "baseline_std": 0.050495577364095295,
+    "anchor_mean": 0.7526999999999999,
+    "anchor_std": 0.072716710596671,
+    "delta": 0.057066666666666675,
+    "t": 4.435277812493002
+  },
+  "experiment3|bdb|Oracle|ci": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.5433666666666667,
+    "baseline_std": 0.013182311380533097,
+    "anchor_mean": 0.5468666666666667,
+    "anchor_std": 0.01679325261327698,
+    "delta": 0.0034999999999999845,
+    "t": 1.288950117368104
+  },
+  "experiment3|bdb|Oracle|rmse": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 1.3140666666666667,
+    "baseline_std": 0.1123841774153877,
+    "anchor_mean": 1.2449666666666666,
+    "anchor_std": 0.12826598665793415,
+    "delta": -0.06910000000000009,
+    "t": -4.340050433534361
+  },
+  "experiment3|bdb|Test|auroc": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.7997333333333333,
+    "baseline_std": 0.030526436630129838,
+    "anchor_mean": 0.8126666666666665,
+    "anchor_std": 0.02055537237155614,
+    "delta": 0.012933333333333316,
+    "t": 1.7381809974045572
+  },
+  "experiment3|bdb|Test|ci": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.5831000000000001,
+    "baseline_std": 0.05600616037544442,
+    "anchor_mean": 0.5829000000000001,
+    "anchor_std": 0.022924004885708827,
+    "delta": -0.00019999999999997797,
+    "t": -0.00881610633999783
+  },
+  "experiment3|bdb|Test|rmse": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 1.3256333333333334,
+    "baseline_std": 0.11391313942356841,
+    "anchor_mean": 1.2767000000000002,
+    "anchor_std": 0.10317301003654003,
+    "delta": -0.04893333333333327,
+    "t": -1.3819569579679387
+  },
+  "experiment3|dtc|Davis-OOD|auroc": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.8641666666666667,
+    "baseline_std": 0.06427863823490143,
+    "anchor_mean": 0.9116,
+    "anchor_std": 0.023643180835073736,
+    "delta": 0.04743333333333333,
+    "t": 1.930757887805217
+  },
+  "experiment3|dtc|Davis-OOD|ci": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.6395666666666666,
+    "baseline_std": 0.021105054686812195,
+    "anchor_mean": 0.6467666666666667,
+    "anchor_std": 0.009916820727094633,
+    "delta": 0.007200000000000058,
+    "t": 1.054235670655193
+  },
+  "experiment3|dtc|Davis-OOD|rmse": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.7968333333333333,
+    "baseline_std": 0.035213681053439035,
+    "anchor_mean": 0.7297333333333333,
+    "anchor_std": 0.03936779563721259,
+    "delta": -0.0671,
+    "t": -3.5784249323473185
+  },
+  "experiment3|dtc|Davis-oracle|auroc": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.8547666666666666,
+    "baseline_std": 0.04815146242154369,
+    "anchor_mean": 0.9160666666666666,
+    "anchor_std": 0.004377594468807388,
+    "delta": 0.06130000000000002,
+    "t": 2.3953537706724024
+  },
+  "experiment3|dtc|Davis-oracle|ci": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.6283333333333333,
+    "baseline_std": 0.019159940848899663,
+    "anchor_mean": 0.6401666666666667,
+    "anchor_std": 0.01534481454216156,
+    "delta": 0.011833333333333326,
+    "t": 2.704256666812956
+  },
+  "experiment3|dtc|Davis-oracle|rmse": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.8404666666666666,
+    "baseline_std": 0.022604055683291265,
+    "anchor_mean": 0.7428333333333333,
+    "anchor_std": 0.037326978625832195,
+    "delta": -0.09763333333333328,
+    "t": -6.9146568569181
+  },
+  "experiment3|dtc|Oracle|auroc": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.6775666666666668,
+    "baseline_std": 0.05742754855758108,
+    "anchor_mean": 0.7413666666666666,
+    "anchor_std": 0.060597057134264665,
+    "delta": 0.06380000000000001,
+    "t": 2.274783277275765
+  },
+  "experiment3|dtc|Oracle|ci": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.5573333333333333,
+    "baseline_std": 0.02347282116264117,
+    "anchor_mean": 0.5679333333333334,
+    "anchor_std": 0.03407261852768781,
+    "delta": 0.01059999999999998,
+    "t": 0.38338833754168694
+  },
+  "experiment3|dtc|Oracle|rmse": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 1.3628,
+    "baseline_std": 0.03507862597081021,
+    "anchor_mean": 1.1887999999999999,
+    "anchor_std": 0.10293823390752335,
+    "delta": -0.17399999999999993,
+    "t": -4.440765183539423
+  },
+  "experiment3|dtc|Test|auroc": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.7775666666666666,
+    "baseline_std": 0.029480558565490773,
+    "anchor_mean": 0.8131,
+    "anchor_std": 0.06599272687198189,
+    "delta": 0.035533333333333306,
+    "t": 1.6094953355636599
+  },
+  "experiment3|dtc|Test|ci": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 0.5824666666666667,
+    "baseline_std": 0.02114718263346998,
+    "anchor_mean": 0.6005666666666666,
+    "anchor_std": 0.0199053594123124,
+    "delta": 0.018099999999999967,
+    "t": 1.0008506716494545
+  },
+  "experiment3|dtc|Test|rmse": {
+    "baseline_model": "ConciseDTA",
+    "anchor_model": "ConciseAnchorBilinear",
+    "seeds": [
+      1,
+      2,
+      42
+    ],
+    "baseline_mean": 1.3689666666666664,
+    "baseline_std": 0.08221023861620483,
+    "anchor_mean": 1.3222666666666667,
+    "anchor_std": 0.016810215148335604,
+    "delta": -0.04670000000000011,
+    "t": -1.2253757323802204
+  }
+}

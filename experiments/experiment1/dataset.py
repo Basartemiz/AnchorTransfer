@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import Dataset
 
 from anchor_transfer.data.esm_encoder import encode_sequences
-from anchor_transfer.model.conplex import encode_smiles
+from anchor_transfer.model.anchor_transfer_v2 import encode_smiles
 
 CACHE_DIR = Path(__file__).parent / "caches"
 ESM650M_CACHE_PATH = CACHE_DIR / "esm650m_embeddings.pt"

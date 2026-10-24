@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import itertools
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -46,7 +47,11 @@ from experiments.experiment4.main import (
 from experiments.experiment4.split import mmseqs_cluster, ood_split
 
 DAVIS_PATH = DATA_DIR / "raw" / "davis_benchmark.csv"
-EXP3_CHECKPOINTS = Path(__file__).parent.parent / "experiment3" / "checkpoints"
+# Overridable so this can be pointed at an archived DTC run while experiment3's
+# live checkpoints/ dir is being rewritten by another training job.
+EXP3_CHECKPOINTS = Path(
+    os.environ.get("EXP3_CHECKPOINTS", Path(__file__).parent.parent / "experiment3" / "checkpoints")
+)
 
 
 def find_homolog_cliffs(
@@ -84,6 +89,7 @@ def pair_metrics(preds: dict[tuple[str, str], float],
                  pairs: list[tuple[str, str, str, float, float]],
                  label: str) -> None:
     correct = 0
+    ties = 0
     total = 0
     true_deltas: list[float] = []
     pred_deltas: list[float] = []
@@ -95,6 +101,10 @@ def pair_metrics(preds: dict[tuple[str, str], float],
         p_hi, p_lo = preds[k_hi], preds[k_lo]
         if p_hi > p_lo:
             correct += 1
+        elif p_hi == p_lo:
+            # Exact ties score as failures, so acc alone cannot distinguish
+            # "ranks the wrong way" from "cannot tell the two sides apart".
+            ties += 1
         total += 1
         true_deltas.append(pki_hi - pki_lo)
         pred_deltas.append(p_hi - p_lo)
@@ -110,7 +120,9 @@ def pair_metrics(preds: dict[tuple[str, str], float],
     mean_pred_delta = float(np.mean(np.abs(pred_deltas)))
     print(f"{label}:  acc={acc:.4f} (n={total})  "
           f"Δpki corr={corr:+.4f}  side RMSE={rmse:.4f}  "
-          f"|true Δ|={mean_true_delta:.2f}  |pred Δ|={mean_pred_delta:.2f}")
+          f"|true Δ|={mean_true_delta:.2f}  |pred Δ|={mean_pred_delta:.2f}  "
+          f"ties={ties}/{total} ({ties / total:.1%})  "
+          f"acc_excl_ties={(correct / (total - ties)) if total > ties else float('nan'):.4f}")
 
 
 def main() -> None:
@@ -228,6 +240,24 @@ def main() -> None:
     print("-" * 72)
     pair_metrics(dta_pred, valid_pairs, "ConciseDTA           ")
     pair_metrics(anc_pred, valid_pairs, "ConciseAnchorBilinear")
+    print("=" * 72)
+
+    # Davis stores point mutants (e.g. KIT vs KIT(D816V)) under the wild-type
+    # sequence, so many "cliff" pairs are byte-identical inputs with different
+    # measured pKi. No sequence-based model can separate those, and they are
+    # scored as failures. Repeat the comparison on pairs that genuinely differ.
+    distinct_pairs = [p for p in valid_pairs
+                      if davis_uniprots.get(p[1]) != davis_uniprots.get(p[2])]
+    n_identical = len(valid_pairs) - len(distinct_pairs)
+    print(f"DISTINCT-SEQUENCE PAIRS ONLY "
+          f"({len(distinct_pairs)}/{len(valid_pairs)}; "
+          f"dropped {n_identical} identical-sequence pairs)")
+    print("-" * 72)
+    if distinct_pairs:
+        pair_metrics(dta_pred, distinct_pairs, "ConciseDTA           ")
+        pair_metrics(anc_pred, distinct_pairs, "ConciseAnchorBilinear")
+    else:
+        print("  no pairs with differing sequences at this identity threshold")
     print("=" * 72)
 
 

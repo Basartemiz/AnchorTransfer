@@ -1,0 +1,31 @@
+[seed_run] seed=43 exp=experiment3 dataset=bdb entry=eval_davis
+Using device: cuda  |  anchors from: bdb (bindingdb_interactions.csv)
+Davis proteins: 442 total → 80 OOD vs bdb train (≤30% identity)
+Davis drugs: 68 total → 61 with Tanimoto anchors (≥0.7 similarity)
+Morgan cache: 420922 / 68 Davis SMILES fingerprinted
+Davis-OOD evaluable samples: 4880
+========================================================================
+DAVIS-OOD (≤30% identity to bdb train, best checkpoints)
+  ConciseDTA:    macro_CI=0.6314  macro_RMSE=0.7494  macro_AUROC=0.8994 (n=73)  score=-0.1180
+  ConciseAnchorBilinear: macro_CI=0.6469  macro_RMSE=0.6682  macro_AUROC=0.9451 (n=73)  score=-0.0213
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown:
+           bin |      n |  DTA RMSE  DTA CI |  Anc RMSE  Anc CI
+         ≤8.30 |   1280 |    0.5395  0.5544 |    0.4721  0.5826
+  (8.30, 8.83] |   1200 |    0.6858  0.5788 |    0.6686  0.5975
+  (8.83, 9.29] |   1200 |    0.8637  0.6349 |    0.8112  0.6733
+         >9.29 |   1200 |    0.9493  0.6426 |    0.8214  0.6816
+========================================================================
+Davis-OOD oracle samples: 5280 (drugs with oracle anchor: 66)
+========================================================================
+DAVIS-OOD — ORACLE ANCHORS (strongest Davis binder per drug, upper bound)
+  ConciseDTA:    macro_CI=0.6156  macro_RMSE=0.8394  macro_AUROC=0.8526 (n=73)  score=-0.2238
+  ConciseAnchorBilinear: macro_CI=0.6200  macro_RMSE=0.7586  macro_AUROC=0.9010 (n=73)  score=-0.1387
+------------------------------------------------------------------------
+Anchor-pKi quartile breakdown (oracle):
+           bin |      n |  DTA RMSE  DTA CI |  Anc RMSE  Anc CI
+         ≤8.68 |   1521 |    0.8296  0.5626 |    0.8187  0.5729
+  (8.68, 9.08] |   1121 |    0.6907  0.6072 |    0.6328  0.6070
+  (9.08, 9.54] |   1359 |    0.8660  0.6312 |    0.8128  0.6633
+         >9.54 |   1279 |    0.9978  0.6035 |    0.8832  0.6464
+========================================================================
